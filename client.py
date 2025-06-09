@@ -32,6 +32,20 @@ TEXT_DEC_ITALIC	= 0b010
 TEXT_DEC_UNDERLINE = 0b100
 
 class CommandHandler:
+	def __init__(self):
+		self.register("help", "Show this text", "[page:int]", self._help)
+	def _help(self, page=1):
+		pages = int(len(self.commands)/10+1)
+		page = min(max(1, page), pages)-1
+		text = f"Help (page {page+1}/{pages})\n"
+		maxlen = 0
+		ptrn = lambda command, data: f"{command}{' '+data[0] if data[0] != '' else ''}"
+		for command, data in list(self.commands.items())[10*(page):10*(page+1)]:
+			maxlen = max(maxlen, len(ptrn(command, data)))
+		for command, data in list(self.commands.items())[10*(page):10*(page+1)]:
+			head = ptrn(command, data)
+			text += head+' '+' '*(maxlen-len(head))+data[2]+'\n'
+		return text[:-1]
 	commands = {}
 	def parse_args_command(self, arglist):
 		i = 0
@@ -114,8 +128,8 @@ class CommandHandler:
 			i += 1
 		if argslist == ['']: return []
 		return argslist
-	def register(self, command, args, callback):
-		self.commands[command] = [args, callback]
+	def register(self, command, desc, args, callback):
+		self.commands[command] = [args, callback, desc]
 	def exec(self, inp):
 		command = inp.split(' ')[0]
 		arglist = inp[len(command)+1:]
@@ -279,14 +293,14 @@ class ClientState:
 		return True
 
 	def commands_init(self):
-		self.command_handler.register('exit', '', exit)
-		self.command_handler.register('name', '<name>', self.command_name)
-		self.command_handler.register('connect', '<host> <port:int>', self.command_connect)
-		self.command_handler.register('reconnect', '', self.command_reconnect)
-		self.command_handler.register('disconnect', '', self.command_disconnect)
+		self.command_handler.register('exit', 'Exit Scalar', '', exit)
+		self.command_handler.register('name', 'Change or display current name', '[name]', self.command_name)
+		self.command_handler.register('connect', 'Connect to Scalar server', '<host> <port:int>', self.command_connect)
+		self.command_handler.register('reconnect', 'Reconnect to last server', '', self.command_reconnect)
+		self.command_handler.register('disconnect', 'Disconnect from server', '', self.command_disconnect)
 
-		self.command_handler.register('list', '', self.command_list)
-		self.command_handler.register('uinfo', '<name>', self.command_uinfo)
+		self.command_handler.register('list', 'Query list of users connected to server', '', self.command_list)
+		self.command_handler.register('uinfo', 'Query info about a specific user on server', '<name>', self.command_uinfo)
 	def commands_queue(self, callback):
 		while True:
 			cid = random.randint(0, 65535)
@@ -318,11 +332,13 @@ class ClientState:
 			return "wasn't connected yet"
 		self.close()
 		self.start()
-		return "reconnecting..."
+		return None
 	def command_disconnect(self):
 		self.close()
 		return "disconnected"
 	def command_list(self):
+		if not self.connected():
+			return "not connected"
 		cid = self.commands_queue(self.command_list_cont)
 		self.send(packets.SERVERBOUND_CommandRequest(cid=cid, command='list', data=[]))
 		return None
@@ -333,6 +349,8 @@ class ClientState:
 		for usr in data:
 			self.screen.push_to_log("SERVER", f"  {usr}")
 	def command_uinfo(self, name):
+		if not self.connected():
+			return "not connected"
 		cid = self.commands_queue(self.command_uinfo_cont)
 		self.send(packets.SERVERBOUND_CommandRequest(cid=cid, command='uinfo', data=[name]))
 		return None
@@ -484,11 +502,9 @@ class Screen:
 		color_stack = [None]
 		i = 0
 		flags = 0b000
-		color = None
 		while i < len(text):
 			ch = text[i]
 			nch = text[i + 1] if i + 1 < len(text) else ''
-			pch = text[i - 1] if i - 1 >= 0 else ''
 
 			if ch == '\\' and i + 1 < len(text):
 				result[-1][0] += nch
@@ -679,10 +695,11 @@ def main(stdscr):
 	screen.push_to_log("WELCOME", "All your settings are automatically saved")
 	screen.push_to_log("WELCOME", "Some useful commands:")
 	# screen.push_to_log("WELCOME", "  /reset [YESIAMSUREPLEASEFORGET]  Delete all your configuration and exit")
-	screen.push_to_log("WELCOME", "  /exit							Exit")
-	screen.push_to_log("WELCOME", "  /name <name>					 Change your display name")
-	screen.push_to_log("WELCOME", "  /connect <host> <port>		   Connect to codespeak server")
-	screen.push_to_log("WELCOME", "  /reconnect					   Reconnect to last connected server")
+	screen.push_to_log("WELCOME", "  /exit                         Exit")
+	screen.push_to_log("WELCOME", "  /name <name>                  Change your display name")
+	screen.push_to_log("WELCOME", "  /connect <host> <port>        Connect to codespeak server")
+	screen.push_to_log("WELCOME", "  /reconnect                    Reconnect to last connected server")
+	screen.push_to_log("WELCOME", "  /help                         Show commands help")
 	screen.push_to_log("WELCOME", f"Your key fingerprint is {CODESPEAK.fingerprint(CODESPEAK.public_key())}")
 
 	# client.push_message("testing", ' '.join([f"fuckoff{i:03d}" for i in range(64)]))
