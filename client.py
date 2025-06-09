@@ -341,7 +341,7 @@ class ClientState:
 			self.screen.push_to_log("SERVER", f"No such user: {data[0]}")
 			return
 		self.screen.push_to_log("SERVER", f"User {data[0]}")
-		self.screen.push_to_log("SERVER", f"  OName       {data[1]}")
+		self.screen.push_to_log("SERVER", f"  OName	   {data[1]}")
 		self.screen.push_to_log("SERVER", f"  Fingerprint {data[2]}")
 
 	def input(self, inp):
@@ -480,72 +480,72 @@ class Screen:
 		self.refresh()
 
 	def parse_markup(self, text) -> list:
-	    result = [['', 0, None]]
-	    color_stack = [None]
-	    i = 0
-	    flags = 0b000
-	    color = None
-	    while i < len(text):
-	        ch = text[i]
-	        nch = text[i + 1] if i + 1 < len(text) else ''
-	        pch = text[i - 1] if i - 1 >= 0 else ''
+		result = [['', 0, None]]
+		color_stack = [None]
+		i = 0
+		flags = 0b000
+		color = None
+		while i < len(text):
+			ch = text[i]
+			nch = text[i + 1] if i + 1 < len(text) else ''
+			pch = text[i - 1] if i - 1 >= 0 else ''
 
-	        if ch == '\\' and i + 1 < len(text):
-	            result[-1][0] += nch
-	            i += 2
-	            continue
-	        if ch == '*' and nch == '*':
-	            if flags & TEXT_DEC_BOLD != 0:
-	                flags -= TEXT_DEC_BOLD
-	            else:
-	                flags += TEXT_DEC_BOLD
-	            result.append(['', flags, color_stack[-1]])
-	            i += 2
-	            continue
-	        if ch == '*':
-	            if flags & TEXT_DEC_ITALIC != 0:
-	                flags -= TEXT_DEC_ITALIC
-	            else:
-	                flags += TEXT_DEC_ITALIC
-	            result.append(['', flags, color_stack[-1]])
-	            i += 1
-	            continue
-	        if ch == '_':
-	            if flags & TEXT_DEC_UNDERLINE != 0:
-	                flags -= TEXT_DEC_UNDERLINE
-	            else:
-	                flags += TEXT_DEC_UNDERLINE
-	            result.append(['', flags, color_stack[-1]])
-	            i += 1
-	            continue
-	        if ch == '!':
-	            if nch in '0123456789abcdef':
-	            	i += 2
-	            	color_stack.append(int(nch, 16))
-	            	result.append(['', flags, color_stack[-1]])
-	            	continue
-	            if nch == 'x':
-	            	if color_stack.pop() != None:
-	            		i += 2
-	            		result.append(['', flags, color_stack[-1]])
-	            		continue
-	            	color_stack.append(None)
+			if ch == '\\' and i + 1 < len(text):
+				result[-1][0] += nch
+				i += 2
+				continue
+			if ch == '*' and nch == '*':
+				if flags & TEXT_DEC_BOLD != 0:
+					flags -= TEXT_DEC_BOLD
+				else:
+					flags += TEXT_DEC_BOLD
+				result.append(['', flags, color_stack[-1]])
+				i += 2
+				continue
+			if ch == '*':
+				if flags & TEXT_DEC_ITALIC != 0:
+					flags -= TEXT_DEC_ITALIC
+				else:
+					flags += TEXT_DEC_ITALIC
+				result.append(['', flags, color_stack[-1]])
+				i += 1
+				continue
+			if ch == '_':
+				if flags & TEXT_DEC_UNDERLINE != 0:
+					flags -= TEXT_DEC_UNDERLINE
+				else:
+					flags += TEXT_DEC_UNDERLINE
+				result.append(['', flags, color_stack[-1]])
+				i += 1
+				continue
+			if ch == '!':
+				if nch in '0123456789abcdef':
+					i += 2
+					color_stack.append(int(nch, 16))
+					result.append(['', flags, color_stack[-1]])
+					continue
+				if nch == 'x':
+					if color_stack.pop() != None:
+						i += 2
+						result.append(['', flags, color_stack[-1]])
+						continue
+					color_stack.append(None)
 
-	        result[-1][0] += ch
-	        i += 1
-	    if flags != 0:
-	    	for flag, trigger in zip([TEXT_DEC_BOLD, TEXT_DEC_ITALIC, TEXT_DEC_UNDERLINE], ["**", "*", "_"]):
-	    		if flags & flag == 0:
-	    			continue
-	    		for i, t in reverseenumerate(result):
-	    			if t[1] & flag != 0:
-	    				t[1] -= flag
-	    			if t[1] & flag == 0:
-	    				t[0] = trigger+t[0]
-	    				break
+			result[-1][0] += ch
+			i += 1
+		if flags != 0:
+			for flag, trigger in zip([TEXT_DEC_BOLD, TEXT_DEC_ITALIC, TEXT_DEC_UNDERLINE], ["**", "*", "_"]):
+				if flags & flag == 0:
+					continue
+				for i, t in reverseenumerate(result):
+					if t[1] & flag != 0:
+						t[1] -= flag
+					if t[1] & flag == 0:
+						t[0] = trigger+t[0]
+						break
 
-	    result = [t for t in result if t[0] != '']
-	    return result
+		result = [t for t in result if t[0] != '']
+		return result
 	def get_raw_text(self, markup_parsed):
 		return ''.join(i[0] for i in markup_parsed)
 	def get_text_size(self, text):
@@ -679,10 +679,10 @@ def main(stdscr):
 	screen.push_to_log("WELCOME", "All your settings are automatically saved")
 	screen.push_to_log("WELCOME", "Some useful commands:")
 	# screen.push_to_log("WELCOME", "  /reset [YESIAMSUREPLEASEFORGET]  Delete all your configuration and exit")
-	screen.push_to_log("WELCOME", "  /exit                            Exit")
-	screen.push_to_log("WELCOME", "  /name <name>                     Change your display name")
-	screen.push_to_log("WELCOME", "  /connect <host> <port>           Connect to codespeak server")
-	screen.push_to_log("WELCOME", "  /reconnect                       Reconnect to last connected server")
+	screen.push_to_log("WELCOME", "  /exit							Exit")
+	screen.push_to_log("WELCOME", "  /name <name>					 Change your display name")
+	screen.push_to_log("WELCOME", "  /connect <host> <port>		   Connect to codespeak server")
+	screen.push_to_log("WELCOME", "  /reconnect					   Reconnect to last connected server")
 	screen.push_to_log("WELCOME", f"Your key fingerprint is {CODESPEAK.fingerprint(CODESPEAK.public_key())}")
 
 	# client.push_message("testing", ' '.join([f"fuckoff{i:03d}" for i in range(64)]))

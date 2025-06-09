@@ -9,53 +9,53 @@ P = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B
 G = 2
 
 class Codespeak:
-    GENERATOR = 2
-    KEY_SIZE = 512
+	GENERATOR = 2
+	KEY_SIZE = 512
 
-    params_numbers = dh.DHParameterNumbers(P, G)
-    parameters = params_numbers.parameters()
-    private_key = None
-    shared_key = None
-    def __init__(self):
-        pass
-    def load_key(self, key):
-        self.private_key = serialization.load_pem_private_key(key, None)
-    def generate_key(self):
-        self.private_key = self.parameters.generate_private_key()
-    def save_key(self):
-        return self.private_key.private_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.PKCS8,
-            encryption_algorithm=serialization.NoEncryption()
-        )
-    def fingerprint(self, pubkey):
-        return hashlib.sha256(pubkey).hexdigest()[0:8]
-    def public_key(self):
-        return self.private_key.public_key().public_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PublicFormat.SubjectPublicKeyInfo
-        )
-    def exchange(self, public_bytes):
-        shared = self.private_key.exchange(serialization.load_pem_public_key(public_bytes))
-        self.shared_key = HKDF(
-            algorithm=hashes.SHA256(),
-            length=32,
-            salt=None,
-            info=b'handshake data',
-        ).derive(shared)
+	params_numbers = dh.DHParameterNumbers(P, G)
+	parameters = params_numbers.parameters()
+	private_key = None
+	shared_key = None
+	def __init__(self):
+		pass
+	def load_key(self, key):
+		self.private_key = serialization.load_pem_private_key(key, None)
+	def generate_key(self):
+		self.private_key = self.parameters.generate_private_key()
+	def save_key(self):
+		return self.private_key.private_bytes(
+			encoding=serialization.Encoding.PEM,
+			format=serialization.PrivateFormat.PKCS8,
+			encryption_algorithm=serialization.NoEncryption()
+		)
+	def fingerprint(self, pubkey):
+		return hashlib.sha256(pubkey).hexdigest()[0:8]
+	def public_key(self):
+		return self.private_key.public_key().public_bytes(
+			encoding=serialization.Encoding.PEM,
+			format=serialization.PublicFormat.SubjectPublicKeyInfo
+		)
+	def exchange(self, public_bytes):
+		shared = self.private_key.exchange(serialization.load_pem_public_key(public_bytes))
+		self.shared_key = HKDF(
+			algorithm=hashes.SHA256(),
+			length=32,
+			salt=None,
+			info=b'handshake data',
+		).derive(shared)
 
-    def encrypt(self, data):
-        iv = os.urandom(12)
-        encryptor = Cipher(
-            algorithms.AES(self.shared_key),
-            modes.GCM(iv)
-        ).encryptor()
-        crypted = encryptor.update(data) + encryptor.finalize()
-        return iv, encryptor.tag, crypted
-    def decrypt(self, iv, tag, crypted):
-        decryptor = Cipher(
-            algorithms.AES(self.shared_key),
-            modes.GCM(iv, tag)
-        ).decryptor()
-        data = decryptor.update(crypted) + decryptor.finalize()
-        return data
+	def encrypt(self, data):
+		iv = os.urandom(12)
+		encryptor = Cipher(
+			algorithms.AES(self.shared_key),
+			modes.GCM(iv)
+		).encryptor()
+		crypted = encryptor.update(data) + encryptor.finalize()
+		return iv, encryptor.tag, crypted
+	def decrypt(self, iv, tag, crypted):
+		decryptor = Cipher(
+			algorithms.AES(self.shared_key),
+			modes.GCM(iv, tag)
+		).decryptor()
+		data = decryptor.update(crypted) + decryptor.finalize()
+		return data
