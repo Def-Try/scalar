@@ -1,0 +1,54 @@
+QWidget {
+    background: #2b2d33;
+    font: 12pt "Segoe UI";
+    color: #ffffff;
+}
+
+QWidget:disabled {
+    color: #a0a0a0;
+}
+
+QFrame {
+    background: #212227;
+    border-top-left-radius: 3;
+    border-top-right-radius: 3;
+    border-bottom-left-radius: 3;
+    border-bottom-right-radius: 3;
+}
+
+QListWidget {
+    border: 1px solid #808080;
+}
+
+QTextEdit {
+    border: 1px solid #808080;
+}
+
+QLineEdit {
+    border: 1px solid #808080;
+    border-top-left-radius: 3;
+    border-top-right-radius: 3;
+    border-bottom-left-radius: 3;
+    border-bottom-right-radius: 3;
+}
+
+QMenuBar::item:selected {
+    background: #212227;
+}
+
+QMenu::item {
+    border-top-left-radius: 2;
+    border-top-right-radius: 2;
+    border-bottom-left-radius: 2;
+    border-bottom-right-radius: 2;
+    margin: 1px;
+    padding: 2px;
+}
+
+QMenu::item:selected {
+    background: #212227;
+}
+
+#user_info {
+    border: 1px solid #808080;
+}
