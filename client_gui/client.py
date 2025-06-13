@@ -165,12 +165,18 @@ class MainWindow(QtWidgets.QMainWindow):
         middle_frame_layout = QtWidgets.QVBoxLayout()
         middle_frame.setLayout(middle_frame_layout)
         
-        self.messages = QtWidgets.QScrollArea()
-        middle_frame_layout.addWidget(self.messages)
+        # # doesnt work
+        # self.messages = QtWidgets.QScrollArea()
+        # middle_frame_layout.addWidget(self.messages)
         
-        messages_label = QtWidgets.QLabel("why does this not work!!!")
-        messages_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignBottom)
-        self.messages.setWidget(messages_label)
+        # messages_label = QtWidgets.QLabel("why does this not work!!!")
+        # messages_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignBottom)
+        # self.messages.setWidget(messages_label)
+        
+        # works but broken with a lot of messages
+        self.messages = QtWidgets.QLabel()
+        self.messages.setAlignment(QtCore.Qt.AlignmentFlag.AlignBottom)
+        middle_frame_layout.addWidget(self.messages)
         
         self.message_box = QtWidgets.QTextEdit()
         self.message_box.setMaximumHeight(100)
@@ -224,7 +230,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 text += message[0]
             elif len(message) == 2:
                 text += "<" + message[0] + "> " + message[1]
-        self.messages.widget().setText(text)
+        # self.messages.widget().setText(text) # for the QScrollArea version
+        self.messages.setText(text)
     
     # adds a message to the message display
     def add_message(self, channel: str, who: str, message: str):
