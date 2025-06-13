@@ -18,7 +18,7 @@ ALLOWED_NAME_CHARACTERS = string.ascii_letters+string.digits+"_-."
 
 
 class Settings:
-    current_theme: str
+    theme: str
     name: str
     last_server_ip: str
     last_server_port: int
@@ -38,7 +38,7 @@ class Settings:
         with open("data/settings.json", "r") as file:
             data = json.load(file)
         
-        self.current_theme    = data.get("current_theme", "default_dark.css")
+        self.theme    = data.get("theme", "default_dark.css")
         self.name             = data.get("name", "")
         self.last_server_ip   = data.get("last_server_ip", "")
         self.last_server_port = data.get("last_server_port", -1)
@@ -51,7 +51,7 @@ class Settings:
         
         data = {}
         
-        data["current_theme"]    = self.current_theme
+        data["theme"]    = self.theme
         data["name"]             = self.name
         data["last_server_ip"]   = self.last_server_ip
         data["last_server_port"] = self.last_server_port
@@ -82,7 +82,7 @@ class MainWindow(QtWidgets.QMainWindow):
         
         self.reload_theme()
         
-        self.setWindowTitle("Scalar - Not connected")
+        self.setWindowTitle("Scalar")
         
         main_widget = QtWidgets.QWidget()
         self.setCentralWidget(main_widget)
@@ -112,6 +112,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.add_middle_frame()
     
         self.add_right_frame()
+    
+        self.update_from_settings()
+        
+        self.channels = {"main": [["message with no name tag"], ["message", "i am with a name tag"], ["testing", "testing123"]]}
+        self.current_channel = "main"
+        
+        self.update_messages()
     
     # adds the left frames, with the channel list and name text box
     def add_left_frames(self):
@@ -161,16 +168,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.messages = QtWidgets.QScrollArea()
         middle_frame_layout.addWidget(self.messages)
         
-        messages_widget = QtWidgets.QWidget()
-        #messages_widget.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
-        self.messages.setWidget(messages_widget)
-        
-        messages_layout = QtWidgets.QVBoxLayout()
-        messages_widget.setLayout(messages_layout)
-        
-        lable = QtWidgets.QLabel("Testing123")
-        #lable.setSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.MinimumExpanding)
-        messages_layout.addWidget(lable)
+        messages_label = QtWidgets.QLabel("why does this not work!!!")
+        messages_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignBottom)
+        self.messages.setWidget(messages_label)
         
         self.message_box = QtWidgets.QTextEdit()
         self.message_box.setMaximumHeight(100)
@@ -203,27 +203,45 @@ class MainWindow(QtWidgets.QMainWindow):
     
     # reloads the theme
     def reload_theme(self):
-        if settings.current_theme == "":
+        if settings.theme == "":
             self.setStyleSheet("")
             return
-        if os.path.isfile("themes/" + settings.current_theme):
-            theme_file = open("themes/" + settings.current_theme)
+        if os.path.isfile("themes/" + settings.theme):
+            theme_file = open("themes/" + settings.theme)
             self.setStyleSheet(theme_file.read())
             theme_file.close()
     
+    # updates things from the settings
+    def update_from_settings(self):
+            self.name_text_box.setText(settings.name)
+    
+    # updates the messages
+    def update_messages(self):
+        text = ""
+        for message in self.channels[self.current_channel]:
+            text += "\n"
+            if len(message) == 1:
+                text += message[0]
+            elif len(message) == 2:
+                text += "<" + message[0] + "> " + message[1]
+        self.messages.widget().setText(text)
+    
     # adds a message to the message display
-    def add_message(self, who: str, message: str):
-        text = "<" + who + "> " + message
-        print(text)
-        # TODO: add the message to the message display
+    def add_message(self, channel: str, who: str, message: str):
+        text = message
+        print("<" + who + "> " + text)
+        self.channels[channel].append([who, text])
+        self.update_messages()
     
     @QtCore.Slot()
     def about(self):
         print("about")
+        # TODO: add about dialog
     
     @QtCore.Slot()
     def open_settings(self):
         print("open settings")
+        
     
     @QtCore.Slot()
     def connect(self):
@@ -255,6 +273,7 @@ class MainWindow(QtWidgets.QMainWindow):
             settings.last_server_ip = ip
             settings.last_server_port = port
             settings.save()
+            # TODO: connect here
             self.server_menu.actions()[0].setEnabled(False)
             self.server_menu.actions()[1].setEnabled(True)
             self.server_menu.actions()[2].setEnabled(True)
@@ -264,6 +283,7 @@ class MainWindow(QtWidgets.QMainWindow):
     
     @QtCore.Slot()
     def disconnect(self):
+        # TODO: disconnect here
         self.server_menu.actions()[0].setEnabled(True)
         self.server_menu.actions()[1].setEnabled(False)
         self.server_menu.actions()[2].setEnabled(False)
@@ -271,7 +291,9 @@ class MainWindow(QtWidgets.QMainWindow):
     
     @QtCore.Slot()
     def reconnect(self):
-        print("reconnect")
+        # TODO: reconnect here
+        message_box = QtWidgets.QMessageBox(QtWidgets.QMessageBox.Icon.NoIcon, "Reconnected", "Reconnected", QtWidgets.QMessageBox.StandardButton.Ok, self)
+        message_box.exec()
     
     @QtCore.Slot()
     def toggle_user_list(self):
@@ -295,9 +317,16 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             print(name)
             settings.name = name
-            settings.save()
     
     @QtCore.Slot()
     def message_box_changed(self):
-        message = self.message_box.toPlainText()
-        self.add_message(settings.name, message)
+        if self.message_box.toPlainText() == "":
+            return
+        if self.message_box.toPlainText()[-1] == "\n":
+            message = self.message_box.toPlainText()[:-1]
+            self.add_message(self.current_channel, settings.name, message)
+            self.message_box.setText("")
+    
+    def closeEvent(self, event: QtGui.QCloseEvent):
+        settings.save()
+        event.accept()
