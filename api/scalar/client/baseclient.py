@@ -11,7 +11,7 @@ import threading
 
 VERSION = 1
 
-class Client:
+class BaseClient:
     _socket: protosocket.ProtoSocket|None = None
     _username: str = ''
     _original_username: str = ''

@@ -3,7 +3,7 @@ import scalar.protocol.packets.protocol as protocol
 import scalar.protocol.socket.protosocket as protosocket
 import scalar.exceptions as exceptions
 
-import scalar.server.client as client
+import scalar.server.baseclient as client
 
 import threading
 import typing
@@ -12,10 +12,11 @@ import traceback
 
 VERSION = 1
 
-class Server:
+class BaseServer:
     _socket: protosocket.ProtoSocket|None = None
     _clients: dict[str, client.Client] = {}
     _keys: dict[str, typing.Any] = {}
+    _client_class: type = client.BaseClient
     def __init__(self):
         @self.event("on_exception")
         def print_exception(self, client, e):
@@ -86,7 +87,7 @@ class Server:
                 continue
             if await sock.send_packet(protocol.CLIENTBOUND_HANDSHAKE_Hello(version=VERSION)) != protosocket.SOCKET_SUCCESS:
                 continue
-            cl = client.Client(self, addr, sock)
+            cl = self._client_class(self, addr, sock)
             self._clients[cl.format_address()] = cl
             threading.Thread(target=cl.run, daemon=True).start()
             

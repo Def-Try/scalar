@@ -11,7 +11,7 @@ newdir = os.path.dirname(currentdir)
 newdir = os.path.join(newdir, "api")
 sys.path.insert(0, newdir)
 
-from scalar.client.client import Client
+from scalar.client.baseclient import Client
 
 
 ALLOWED_NAME_CHARACTERS = string.ascii_letters+string.digits+"_-."

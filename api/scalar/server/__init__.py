@@ -1,1 +1,1 @@
-from scalar.server.server import Server
+from scalar.server.baseserver import Server
