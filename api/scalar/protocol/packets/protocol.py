@@ -89,6 +89,39 @@ packet.register(CLIENTBOUND_LOGIN_UserInfo)
 
 
 ### GENERAL
+class CLIENTBOUND_SHeartbeat(packet.Packet):
+    side = packet.CLIENT
+    datavalues = {"nonce": int}
+    defaults = {}
+    def _write(self, buffer: packet.buf.Buffer):
+        buffer.WriteU16(self.nonce)
+    def _read(self, buffer: packet.buf.Buffer):
+        self.nonce = buffer.ReadU16()
+class SERVERBOUND_SHeartbeat(packet.Packet):
+    side = packet.SERVER
+    datavalues = {"nonce": int}
+    defaults = {}
+    def _write(self, buffer: packet.buf.Buffer):
+        buffer.WriteU16(self.nonce)
+    def _read(self, buffer: packet.buf.Buffer):
+        self.nonce = buffer.ReadU16()
+class CLIENTBOUND_CHeartbeat(packet.Packet):
+    side = packet.CLIENT
+    datavalues = {"nonce": int}
+    defaults = {}
+    def _write(self, buffer: packet.buf.Buffer):
+        buffer.WriteU16(self.nonce)
+    def _read(self, buffer: packet.buf.Buffer):
+        self.nonce = buffer.ReadU16()
+class SERVERBOUND_CHeartbeat(packet.Packet):
+    side = packet.SERVER
+    datavalues = {"nonce": int}
+    defaults = {}
+    def _write(self, buffer: packet.buf.Buffer):
+        buffer.WriteU16(self.nonce)
+    def _read(self, buffer: packet.buf.Buffer):
+        self.nonce = buffer.ReadU16()
+
 class CLIENTBOUND_Kick(packet.Packet):
     side = packet.CLIENT
     datavalues = {"reason": str}

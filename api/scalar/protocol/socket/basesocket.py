@@ -19,6 +19,7 @@ class BaseSocket:
     @classmethod
     def fromSocket(cls, host: str, port: int, socket: socket.socket):
         sock = cls(host=host, port=port)
+        socket.settimeout(10)
         sock._socket = socket
         sock._closed = False
         sock._bound = False
@@ -52,6 +53,8 @@ class BaseSocket:
             except OSError as e:
                 self._close()
                 raise scalar.exceptions.SocketBroken(f"OSError: {e.strerror}")
+            except socket.timeout:
+                raise scalar.exceptions.SocketTimedOut()
             if len(r) == 0:
                 raise scalar.exceptions.SocketBroken("Length of zero on recv call")
             received += r
@@ -68,6 +71,8 @@ class BaseSocket:
         except OSError as e:
             self._close()
             raise scalar.exceptions.SocketBroken(f"OSError: {e.strerror}")
+        except socket.timeout:
+            raise scalar.exceptions.SocketTimedOut()
     
     async def _accept(self):
         if not self._socket_available():
@@ -98,7 +103,13 @@ class BaseSocket:
             raise scalar.exceptions.SocketAlreadyConnected("Socket already connected")
         # del self._socket
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._socket.connect((self.host, self.port))
+        self._socket.settimeout(120)
+        try:
+            self._socket.connect((self.host, self.port))
+        except socket.error as exc:
+            del self._socket
+            raise
+        self._socket.settimeout(10)
         self._closed = False
         self._bound = False
 
@@ -116,6 +127,8 @@ class BaseSocket:
             return SOCKET_UNBOUND, None
         except scalar.exceptions.SocketBroken:
             return SOCKET_BROKENP, None
+        except scalar.exceptions.SocketTimedOut:
+            return SOCKET_TIMEOUT, None
         
     async def send(self, data: bytes) -> int:
         try:
@@ -125,6 +138,8 @@ class BaseSocket:
             return SOCKET_UNBOUND
         except scalar.exceptions.SocketBroken:
             return SOCKET_BROKENP
+        except scalar.exceptions.SocketTimedOut:
+            return SOCKET_TIMEOUT
         
     async def accept(self):
         try:

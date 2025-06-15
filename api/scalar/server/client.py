@@ -1,5 +1,6 @@
 import asyncio
 import typing
+import random
 
 import scalar.protocol.encryption as encryption
 import scalar.protocol.socket.protosocket as protosocket
@@ -7,7 +8,7 @@ import scalar.protocol.packets.protocol as protocol
 
 ALLOWED_USERNAME_CHARACTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._"
 
-class Client:
+class BaseClient:
     _address: tuple[str, int] = None
     _socket: protosocket.ProtoSocket = None
 
@@ -36,11 +37,6 @@ class Client:
     
     def run(self):
         asyncio.run(self.serve())
-
-    async def serve(self):
-        await self._protocol_connect()
-        await self._protocol_login()
-        await self._invoke_event('on_login_complete')
 
     async def _invoke_event(self, event_name: str, *event_args: list[typing.Any], **event_kwargs: dict[str, typing.Any]):
         return await self._server._invoke_event(self, event_name, *event_args, **event_kwargs)
@@ -88,14 +84,18 @@ class Client:
         if await self._socket.send_packet(packet) != protosocket.SOCKET_SUCCESS:
             await self._invoke_event("on_socket_broken")
             return self._end_it_all()
-        await self._invoke_event("on_packet_sent", packet)
+        if self._logged_in:
+            await self._invoke_event("on_packet_sent", packet)
         
     async def _recv_packet(self, expect: protocol.packet.Packet|None = None) -> protocol.packet.Packet:
         stat, packet = await self._socket.recv_packet()
+        if stat == protosocket.SOCKET_TIMEOUT:
+            return None
         if stat != protosocket.SOCKET_SUCCESS:
             await self._invoke_event("on_socket_broken")
             return self._end_it_all()
-        await self._invoke_event("on_packet_received", packet)
+        if self._logged_in:
+            await self._invoke_event("on_packet_received", packet)
         if type(packet) is expect:
             return packet
         if expect is not None and type(packet) is not expect:
@@ -122,3 +122,46 @@ class Client:
         self._logged_in = True
 
         return True
+    
+    async def recv_packets(self):
+        heartbeats_missed = 0
+        queue = []
+        expect_nonce = None
+        while True:
+            packet = await self._recv_packet()
+
+            # send client heartbeat (check client responsiveness)
+            if not packet:
+                expect_nonce = random.randint(0, 65535)
+                await self._send_packet(protocol.CLIENTBOUND_CHeartbeat(nonce=expect_nonce))
+                heartbeats_missed += 1
+            if heartbeats_missed >= 6:
+                await self.kick("Heartbeat stopped (missed 5 heartbeat attempts)")
+            if not packet:
+                continue
+            if type(packet) is protocol.SERVERBOUND_CHeartbeat:
+                if packet.nonce == expect_nonce:
+                    heartbeats_missed = 0
+                continue
+
+            # reply to server heartbeat (checking server responsiveness)
+            if type(packet) is protocol.SERVERBOUND_SHeartbeat:
+                await self._send_packet(protocol.CLIENTBOUND_SHeartbeat(nonce=packet.nonce))
+                continue
+
+            queue.append(packet)
+            if heartbeats_missed > 0:
+                continue
+            return queue
+    
+    async def _process_packet(packet_type: type, packet: protocol.packet.Packet):
+        pass
+
+    async def serve(self):
+        await self._protocol_connect()
+        await self._protocol_login()
+        await self._invoke_event('on_login_complete')
+        while True:
+            for packet in await self.recv_packets():
+                packet_type = type(packet)
+                await self._process_packet(packet_type, packet)

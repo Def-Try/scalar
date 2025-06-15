@@ -6,6 +6,8 @@ import scalar.exceptions as exceptions
 import typing
 import asyncio
 import traceback
+import random
+import threading
 
 VERSION = 1
 
@@ -72,11 +74,16 @@ class Client:
             raise exceptions.ClientConnectionError()
         await self._invoke_event('on_login_complete')
 
+    def close(self):
+        self._socket.close()
+        del self._socket
+        self._socket = False
+
     def run(self, host: str, port: int):
         asyncio.run(self.serve(host, port))
 
-    async def serve(self, host: str, port: int):
-        await self.connect(host, port)
+    def run_thread(self, host: str, port: int):
+        threading.Thread(target=self.run, args=(host, port)).start()
 
     async def _protocol_connect(self):
         if await self._socket.send_packet(protocol.SERVERBOUND_HANDSHAKE_Hello(version=VERSION)) != protosocket.SOCKET_SUCCESS:
@@ -169,3 +176,45 @@ class Client:
         self._username = agreed_uinfo.username
         await self._invoke_event("on_uinfo_negotiated", self._username)
         return True
+    
+    async def recv_packets(self):
+        heartbeats_missed = 0
+        queue = []
+        expect_nonce = None
+        while True:
+            packet = await self._recv_packet()
+
+            # send server heartbeat (check server responsiveness)
+            if not packet:
+                expect_nonce = random.randint(0, 65535)
+                await self._send_packet(protocol.CLIENTBOUND_SHeartbeat(nonce=expect_nonce))
+                heartbeats_missed += 1
+            if heartbeats_missed >= 6:
+                self.close()
+                raise exceptions.ConnectionTimedOut()
+            if not packet:
+                continue
+            if type(packet) is protocol.SERVERBOUND_SHeartbeat:
+                if packet.nonce == expect_nonce:
+                    heartbeats_missed = 0
+                continue
+
+            # reply to client heartbeat (checking client responsiveness)
+            if type(packet) is protocol.SERVERBOUND_CHeartbeat:
+                await self._send_packet(protocol.CLIENTBOUND_CHeartbeat(nonce=packet.nonce))
+                continue
+            
+            queue.append(packet)
+            if heartbeats_missed > 0:
+                continue
+            return queue
+        
+    async def _process_packet(packet_type: type, packet: protocol.packet.Packet):
+        pass
+
+    async def serve(self, host: str, port: int):
+        await self.connect(host, port)
+        while True:
+            for packet in await self.recv_packets():
+                packet_type = type(packet)
+                await self._process_packet(packet_type, packet)

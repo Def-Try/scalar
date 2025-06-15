@@ -18,6 +18,11 @@ class SocketBroken(ScalarException):
     Raised when low-level function fails to read or write to a socket due to other side closing connection.
     """
 
+class SocketTimedOut(ScalarException):
+    """
+    Raised when read from socket times out
+    """
+
 class ClientConnectionError(ScalarException):
     """
     Raised when Client failed to connect to server
@@ -58,4 +63,9 @@ class PacketUnknown(ScalarException):
 class PacketUnknownSide(ScalarException):
     """
     Raised when packet receiving/registerign side is unknown
+    """
+
+class ConnectionTimedOut(ScalarException):
+    """
+    Raised when connected client or server skipped too many heartbeat attempts
     """

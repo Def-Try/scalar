@@ -94,4 +94,3 @@ class Server:
         clients = self._clients.copy()
         for client in clients.values():
             yield client
-        
