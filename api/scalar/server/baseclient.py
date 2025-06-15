@@ -1,6 +1,7 @@
 import asyncio
 import typing
 import random
+import os
 
 import scalar.protocol.encryption as encryption
 import scalar.protocol.socket.protosocket as protosocket
@@ -30,9 +31,9 @@ class BaseClient:
     
     def _end_it_all(self):
         self._logged_in = False
-        del self._server._clients[self.format_address()]
         self._socket.close()
-        exit(0) # we're a thread, kill ourselves
+        self._server._client_close(self)
+        os._exit(0) # we're a thread, kill ourselves
 
     async def kick(self, reason: str = "No reason specified"):
         await self._invoke_event("on_kick", reason)
@@ -122,7 +123,7 @@ class BaseClient:
             self._username += f"_{self._username_n}"
         await self._send_packet(protocol.CLIENTBOUND_LOGIN_UserInfo(username=self._username))
         await self._invoke_event("on_uinfo_negotiated", self._username)
-        self._client_implementation = await self._recv_packet(protocol.SERVERBOUND_ImplementationInfo).implementation
+        self._client_implementation = (await self._recv_packet(protocol.SERVERBOUND_ImplementationInfo)).implementation
         await self._send_packet(protocol.CLIENTBOUND_ImplementationInfo(implementation=self._server._implementation))
         
 

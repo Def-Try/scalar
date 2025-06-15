@@ -132,17 +132,17 @@ class CLIENTBOUND_ImplementationInfo(packet.Packet):
     datavalues = {"implementation": str}
     defaults = {}
     def _write(self, buffer: packet.buf.Buffer):
-        buffer.WriteU16(self.nonce)
+        buffer.WriteStringNT(self.implementation)
     def _read(self, buffer: packet.buf.Buffer):
-        self.nonce = buffer.ReadU16()
+        self.implementation = buffer.ReadStringNT()
 class SERVERBOUND_ImplementationInfo(packet.Packet):
     side = packet.SERVER
     datavalues = {"implementation": str}
     defaults = {}
     def _write(self, buffer: packet.buf.Buffer):
-        buffer.WriteU16(self.nonce)
+        buffer.WriteStringNT(self.implementation)
     def _read(self, buffer: packet.buf.Buffer):
-        self.nonce = buffer.ReadU16()
+        self.implementation = buffer.ReadStringNT()
 packet.register(SERVERBOUND_ImplementationInfo)
 packet.register(CLIENTBOUND_ImplementationInfo)
 
@@ -182,6 +182,9 @@ class CLIENTBOUND_ServerMessage(packet.Packet):
         buffer.WriteStringNT(self.message)
     def _read(self, buffer: packet.buf.Buffer):
         self.message = buffer.ReadStringNT()
+packet.register(CLIENTBOUND_UserMessage)
+packet.register(SERVERBOUND_SendMessage)
+packet.register(CLIENTBOUND_ServerMessage)
 
 class SERVERBOUND_UserListRequest(packet.Packet):
     side = packet.SERVER

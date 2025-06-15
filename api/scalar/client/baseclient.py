@@ -31,7 +31,7 @@ class BaseClient:
     def set_username(self, username: str|None):
         if self.connected():
             raise exceptions.ClientConnected()
-        self._original_username = self._username
+        self._original_username = username
 
     _keys: dict[str, typing.Any] = {}
     def load_key(self, key_type: str, key_bytes: bytes):
@@ -58,8 +58,6 @@ class BaseClient:
             return func
         return _inner_decorator
     async def _invoke_event(self, event_name: str, *event_args: list[typing.Any], **event_kwargs: dict[str, typing.Any]):
-        if self._events.get(event_name) is None:
-            return
         if hasattr(self, "event_"+event_name):
             try:
                 call = getattr(self, "event_"+event_name)(*event_args, **event_kwargs)
@@ -67,6 +65,8 @@ class BaseClient:
                     await call
             except BaseException as e:
                 await self._invoke_event("on_exception", e)
+        if self._events.get(event_name) is None:
+            return
         for event in self._events[event_name]:
             try:
                 call = event(self, *event_args, **event_kwargs)
@@ -82,6 +82,7 @@ class BaseClient:
     async def connect(self, host: str, port: int):
         if self._original_username is None:
             raise exceptions.ClientNoNameSpecified()
+        
         self._username = self._original_username
 
         self._socket = protosocket.ProtoSocket(
@@ -180,6 +181,8 @@ class BaseClient:
         
     async def _recv_packet(self, expect: protocol.packet.Packet|None = None) -> protocol.packet.Packet:
         stat, packet = await self._socket.recv_packet()
+        if stat == protosocket.SOCKET_TIMEOUT:
+            return None
         if stat != protosocket.SOCKET_SUCCESS:
             await self._invoke_event("on_socket_broken")
             raise exceptions.SocketBroken("Socket closed when receiving packet")
@@ -201,7 +204,7 @@ class BaseClient:
         self._username = agreed_uinfo.username
         await self._invoke_event("on_uinfo_negotiated", self._username)
         await self._send_packet(protocol.SERVERBOUND_ImplementationInfo(implementation=self._implementation))
-        self._server_implementation = await self._recv_packet(protocol.CLIENTBOUND_ImplementationInfo).implementation
+        self._server_implementation = (await self._recv_packet(protocol.CLIENTBOUND_ImplementationInfo)).implementation
         return True
     
     async def recv_packets(self):

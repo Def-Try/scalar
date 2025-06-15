@@ -3,7 +3,7 @@ import scalar.protocol.packets.protocol as protocol
 import scalar.protocol.socket.protosocket as protosocket
 import scalar.exceptions as exceptions
 
-import scalar.server.baseclient as client
+import scalar.server.baseclient as baseclient
 
 import threading
 import typing
@@ -14,9 +14,9 @@ VERSION = 1
 
 class BaseServer:
     _socket: protosocket.ProtoSocket|None = None
-    _clients: dict[str, client.Client] = {}
+    _clients: dict[str, baseclient.BaseClient] = {}
     _keys: dict[str, typing.Any] = {}
-    _client_class: type = client.BaseClient
+    _client_class: type = baseclient.BaseClient
     _implementation: str = 'base'
     def __init__(self):
         @self.event("on_exception")
@@ -42,16 +42,16 @@ class BaseServer:
             self._events[event_name].append(func)
             return func
         return _inner_decorator
-    async def _invoke_event(self, client: client.Client, event_name: str, *event_args: list[typing.Any], **event_kwargs: dict[str, typing.Any]):
-        if self._events.get(event_name) is None:
-            return
+    async def _invoke_event(self, client: baseclient.BaseClient, event_name: str, *event_args: list[typing.Any], **event_kwargs: dict[str, typing.Any]):
         if hasattr(self, "event_"+event_name):
             try:
-                call = getattr(self, "event_"+event_name)(*event_args, **event_kwargs)
+                call = getattr(self, "event_"+event_name)(client, *event_args, **event_kwargs)
                 if call is not None:
                     await call
             except BaseException as e:
-                await self._invoke_event("on_exception", e)
+                await self._invoke_event(client, "on_exception", e)
+        if self._events.get(event_name) is None:
+            return
         for event in self._events[event_name]:
             try:
                 call = event(self, client, *event_args, **event_kwargs)
@@ -99,12 +99,15 @@ class BaseServer:
             self._clients[cl.format_address()] = cl
             threading.Thread(target=cl.run, daemon=True).start()
             
+    def _client_close(self, client):
+        del self._clients[client.format_address()]
+
     def clients(self):
         clients = self._clients.copy()
         for client in clients.values():
             yield client
 
-    async def broadcast(self, packet: protocol.packet.Packet, except_clients: list):
+    async def broadcast(self, packet: protocol.packet.Packet, except_clients: list = []):
         for client in self.clients():
             if client in except_clients: continue
             await client._send_packet(packet)

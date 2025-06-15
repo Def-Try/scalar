@@ -6,11 +6,13 @@ class Scalar0Client(BaseClient):
     _userlist: list[primitives.User] = []
     _implementation: str = 'scalar0'
 
-    async def event_on_login_completed(self):
+    async def event_on_login_complete(self):
         if self._server_implementation not in ('scalar0',):
             return
-        await self._send_packet(protocol.SERVERBOUND_UserListRequest)
+        await self._send_packet(protocol.SERVERBOUND_UserListRequest())
             
+    async def send_message(self, message: str):
+        await self._send_packet(protocol.SERVERBOUND_SendMessage(message=message))
 
     async def _process_packet(self, packet_type: type, packet: protocol.packet.Packet):
         if packet_type is protocol.CLIENTBOUND_UserListResponse:

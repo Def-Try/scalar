@@ -15,11 +15,15 @@ setup(
    url="https://github.com/Def-Try/scalar",
 
    packages=['scalar',
+             'scalar.primitives',
              'scalar.protocol',
              'scalar.protocol.encryption',
              'scalar.protocol.packets',
              'scalar.protocol.socket',
              'scalar.server',
-             'scalar.client'],
+             'scalar.server.implementations',
+             'scalar.server.implementations.scalar0',
+             'scalar.client',
+             'scalar.client.implementations'],
    install_requires=['cryptography'],
 )
