@@ -139,13 +139,13 @@ packet.register(CLIENTBOUND_Kick)
 
 class CLIENTBOUND_UserMessage(packet.Packet):
     side = packet.CLIENT
-    datavalues = {"username": str, "message": str}
+    datavalues = {"fingerprint": str, "message": str}
     defaults = {}
     def _write(self, buffer: packet.buf.Buffer):
-        buffer.WriteStringNT(self.username)
+        buffer.WriteStringNT(self.fingerprint)
         buffer.WriteStringNT(self.message)
     def _read(self, buffer: packet.buf.Buffer):
-        self.username = buffer.ReadStringNT()
+        self.fingerprint = buffer.ReadStringNT()
         self.message = buffer.ReadStringNT()
 class SERVERBOUND_SendMessage(packet.Packet):
     side = packet.SERVER
