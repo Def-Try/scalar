@@ -10,13 +10,12 @@ class Scalar0Client(BaseClient):
         if self._server_implementation not in ('scalar0',):
             return
         await self._send_packet(protocol.SERVERBOUND_UserListRequest)
-        for packet in await self.recv_packets():
-            if type(packet) is not protocol.CLIENTBOUND_UserListResponse:
-                await self._process_packet(type(packet), packet)
-                continue
-            self._userlist = packet.users
+            
 
     async def _process_packet(self, packet_type: type, packet: protocol.packet.Packet):
+        if packet_type is protocol.CLIENTBOUND_UserListResponse:
+            self._userlist = packet.users
+            return
         if packet_type is protocol.CLIENTBOUND_EventUserJoined:
             await self._invoke_event("on_user_joined", packet.user)
             for user in self._userlist:
