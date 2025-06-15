@@ -38,7 +38,7 @@ class Settings:
         with open("data/settings.json", "r") as file:
             data = json.load(file)
         
-        self.theme    = data.get("theme", "default_dark.css")
+        self.theme            = data.get("theme", "default_dark.css")
         self.name             = data.get("name", "")
         self.last_server_ip   = data.get("last_server_ip", "")
         self.last_server_port = data.get("last_server_port", -1)
@@ -51,7 +51,7 @@ class Settings:
         
         data = {}
         
-        data["theme"]    = self.theme
+        data["theme"]            = self.theme
         data["name"]             = self.name
         data["last_server_ip"]   = self.last_server_ip
         data["last_server_port"] = self.last_server_port
@@ -71,10 +71,12 @@ class Settings:
 settings: Settings = Settings()
 
 
-# the main window
+# the main window class
 # please do not the MainWindow
 # due to the g-globals (:fearful:), there can only be ONE MainWindow in a process
 class MainWindow(QtWidgets.QMainWindow):
+    client: Client = Client(username="")
+
     def __init__(self):
         super().__init__()
         
@@ -93,35 +95,33 @@ class MainWindow(QtWidgets.QMainWindow):
         # the menu bar
         menu_bar = QtWidgets.QMenuBar()
         self.file_menu = menu_bar.addMenu("File")
-        self.file_menu.addAction(QtGui.QAction("About", self, triggered=self.about))
-        self.file_menu.addAction(QtGui.QAction("Settings", self, triggered=self.open_settings))
+        self.file_menu.addAction(QtGui.QAction("About", self, triggered=self._about))
+        self.file_menu.addAction(QtGui.QAction("Settings", self, triggered=self._open_settings))
         self.file_menu.addAction(QtGui.QAction("Quit", self, triggered=self.close))
         self.server_menu = menu_bar.addMenu("Server")
-        self.server_menu.addAction(QtGui.QAction("Connect", self, triggered=self.connect))
-        self.server_menu.addAction(QtGui.QAction("Disconnect", self, triggered=self.disconnect))
-        self.server_menu.actions()[1].setEnabled(False)
-        self.server_menu.addAction(QtGui.QAction("Reconnect", self, triggered=self.reconnect))
-        self.server_menu.actions()[2].setEnabled(False)
+        self.server_menu.addAction(QtGui.QAction("Connect", self, triggered=self._connect))
+        self.server_menu.addAction(QtGui.QAction("Disconnect", self, triggered=self._disconnect))
+        self.server_menu.actions()[1].setEnabled(False) # Server/Disconnect
         self.view_menu = menu_bar.addMenu("View")
-        self.view_menu.addAction(QtGui.QAction("View users", self, triggered=self.toggle_user_list))
+        self.view_menu.addAction(QtGui.QAction("View users", self, triggered=self._toggle_user_list))
         self.view_menu.addAction(QtGui.QAction("Reload theme", self, triggered=self.reload_theme))
         self.main_layout.setMenuBar(menu_bar)
         
         self.add_left_frames()
-        
         self.add_middle_frame()
-    
         self.add_right_frame()
     
+        self.set_name(settings.name)
         self.update_from_settings()
         
-        self.channels = {"main": [["message with no name tag"], ["message", "i am with a name tag"], ["testing", "testing123"]]}
-        self.current_channel = "main"
+        self.channels = {"logs": {"can_send": False, "messages": [["aaaaa"]]}}
+        self.current_channel = "logs"
         
-        self.update_messages()
+        self.change_channel("logs")
     
     # adds the left frames, with the channel list and name text box
     def add_left_frames(self):
+        # the widget that contains both of the frames
         widget = QtWidgets.QWidget()
         widget.setMinimumWidth(100)
         widget.setMaximumWidth(250)
@@ -131,6 +131,7 @@ class MainWindow(QtWidgets.QMainWindow):
         widget_layout.setContentsMargins(QtCore.QMargins(0, 0, 0, 0))
         widget.setLayout(widget_layout)
         
+        # the top frame with the channel list
         channel_list_frame = QtWidgets.QFrame()
         channel_list_frame.setObjectName("channel_list_frame")
         widget_layout.addWidget(channel_list_frame)
@@ -140,9 +141,13 @@ class MainWindow(QtWidgets.QMainWindow):
         
         channel_list_frame_layout.addWidget(QtWidgets.QLabel("Channels"))
         
+        # the list with all the channels
         self.channel_list = QtWidgets.QListWidget()
+        self.channel_list.addItem(QtWidgets.QListWidgetItem("logs"))
+        self.channel_list.itemSelectionChanged.connect(self._selected_channel)
         channel_list_frame_layout.addWidget(self.channel_list)
         
+        # the bottom frame with the users name
         you_frame = QtWidgets.QFrame()
         you_frame.setObjectName("you_frame")
         widget_layout.addWidget(you_frame)
@@ -150,14 +155,16 @@ class MainWindow(QtWidgets.QMainWindow):
         you_frame_layout = QtWidgets.QVBoxLayout()
         you_frame.setLayout(you_frame_layout)
         
+        # the text box where the user can edit their name
         self.name_text_box = QtWidgets.QLineEdit()
         self.name_text_box.setPlaceholderText("your_name")
         self.name_text_box.setMaxLength(50)
-        self.name_text_box.textEdited.connect(self.name_edited)
+        self.name_text_box.textEdited.connect(self._name_edited)
         you_frame_layout.addWidget(self.name_text_box)
 
     # adds the middle frame, with the messages and message box
     def add_middle_frame(self):
+        # the frame
         middle_frame = QtWidgets.QFrame()
         middle_frame.setObjectName("middle_frame")
         self.main_layout.addWidget(middle_frame)
@@ -165,7 +172,8 @@ class MainWindow(QtWidgets.QMainWindow):
         middle_frame_layout = QtWidgets.QVBoxLayout()
         middle_frame.setLayout(middle_frame_layout)
         
-        # # doesnt work
+        # the message display
+        # # doesnt work, even though
         # self.messages = QtWidgets.QScrollArea()
         # middle_frame_layout.addWidget(self.messages)
         
@@ -174,20 +182,24 @@ class MainWindow(QtWidgets.QMainWindow):
         # self.messages.setWidget(messages_label)
         
         # works but broken with a lot of messages
-        self.messages = QtWidgets.QLabel()
+        self.messages = QtWidgets.QLabel("sex")
+        self.messages.setObjectName("messages")
         self.messages.setAlignment(QtCore.Qt.AlignmentFlag.AlignBottom)
         middle_frame_layout.addWidget(self.messages)
         
+        # the message textbox
         self.message_box = QtWidgets.QTextEdit()
         self.message_box.setMaximumHeight(100)
         self.message_box.setPlaceholderText("Message")
         self.message_box.setAcceptRichText(False)
         self.message_box.setSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.MinimumExpanding)
-        self.message_box.textChanged.connect(self.message_box_changed)
+        self.message_box.setEnabled(False)
+        self.message_box.textChanged.connect(self._message_box_changed)
         middle_frame_layout.addWidget(self.message_box)
 
     # adds the right frame, with the connected user list and user info
     def add_right_frame(self):
+        # the frame
         self.right_frame = QtWidgets.QFrame()
         self.right_frame.setObjectName("right_frame")
         self.right_frame.setMinimumWidth(100)
@@ -199,6 +211,7 @@ class MainWindow(QtWidgets.QMainWindow):
         
         frame_layout.addWidget(QtWidgets.QLabel("Connected Users"))
         
+        # the list with all the connected users
         self.user_list = QtWidgets.QListWidget()
         frame_layout.addWidget(self.user_list)
         
@@ -219,95 +232,180 @@ class MainWindow(QtWidgets.QMainWindow):
     
     # updates things from the settings
     def update_from_settings(self):
-            self.name_text_box.setText(settings.name)
+        pass
     
-    # updates the messages
+    # updates the displayed messages
     def update_messages(self):
+        # if you didnt select a channel: dont show anything
+        if self.current_channel == "":
+            self.messages.setText("")
+            return
+
         text = ""
-        for message in self.channels[self.current_channel]:
+        for message in self.channels[self.current_channel]["messages"]:
             text += "\n"
             if len(message) == 1:
                 text += message[0]
             elif len(message) == 2:
                 text += "<" + message[0] + "> " + message[1]
+
         # self.messages.widget().setText(text) # for the QScrollArea version
         self.messages.setText(text)
     
     # adds a message to the message display
     def add_message(self, channel: str, who: str, message: str):
-        text = message
-        print("<" + who + "> " + text)
-        self.channels[channel].append([who, text])
+        print("<" + who + "> " + message)
+        self.channels[channel]["messages"].append([who, message])
         self.update_messages()
     
+    # adds a message without a name to the message display
+    def add_raw_message(self, channel: str, message: str):
+        print(message)
+        self.channels[channel]["messages"].append([message])
+        self.update_messages()
+    
+    # shows a dialog box with info
+    def show_info_dialog(self, title: str, text: str):
+        message_box = QtWidgets.QMessageBox(QtWidgets.QMessageBox.Icon.NoIcon, title, text, QtWidgets.QMessageBox.StandardButton.Ok, self)
+        message_box.exec()
+    
+    # shows a dialog box with an error
+    def show_error_dialog(self, title: str, text: str):
+        message_box = QtWidgets.QMessageBox(QtWidgets.QMessageBox.Icon.Critical, title, text, QtWidgets.QMessageBox.StandardButton.Ok, self)
+        message_box.exec()
+    
+    # sets your name
+    # DO NOT RUN WHILE CONNECTED
+    def set_name(self, new_name: str):
+        settings.name = new_name
+        self.client._username = new_name
+        self.client._original_username = new_name
+    
+    # changes the shown channel
+    def change_channel(self, new_channel: str):
+        self.current_channel = new_channel
+        self.message_box.setEnabled(self.channels[self.current_channel]["can_send"])
+        self.channel_list.setCurrentItem(self.channel_list.findItems(new_channel, QtCore.Qt.MatchFlag.MatchExactly)[0])
+        self.update_messages()
+    
+    def add_channel(self, name: str, can_send: bool):
+        self.channels[name] = {"can_send": can_send, "messages": [["first"]]}
+        self.channel_list.addItem(QtWidgets.QListWidgetItem(name))
+    
+    def remove_channel(self, name: str, can_send: bool):
+        self.channels[name] = None
+        self.channel_list.removeItemWidget(self.channel_list.findItems(name, QtCore.Qt.MatchFlag.MatchExactly)[0])
+    
+    # connects to an ip and port
+    def client_connect(self, ip: str, port: int):
+        self.add_raw_message("logs", f"Connecting to {ip} with port {port}")
+        
+        # disable the buttons to make sure you dont fuck shit up while connecting
+        self.server_menu.actions()[0].setEnabled(False) # Server/Connect
+        self.server_menu.actions()[1].setEnabled(False)  # Server/Disconnect
+        self.name_text_box.setEnabled(False)
+        
+        # TODO: connect to server
+    
+    @client.event("on_connected")
+    def _client_on_connected(self, client):
+        # get server information
+        
+        # enable and disable some menu buttons
+        self.server_menu.actions()[0].setEnabled(False) # Server/Connect
+        self.server_menu.actions()[1].setEnabled(True)  # Server/Disconnect
+        self.name_text_box.setEnabled(False)
+        
+        self.add_raw_message("logs", "Connected")
+    
+    # disconnects
+    def client_disconnect(self):
+        self.add_raw_message("logs", "Disconnecting")
+        
+        # disable the buttons to make sure you dont fuck shit up while connecting
+        self.server_menu.actions()[0].setEnabled(False) # Server/Connect
+        self.server_menu.actions()[1].setEnabled(False)  # Server/Disconnect
+        self.name_text_box.setEnabled(False)
+        
+        # TODO: disconnect from server
+        
+    @client.event("on_closed")
+    def _client_on_closed(self, client):
+        self.channels = {self.channels[0]}
+        self.channel_list.clear()
+        self.channel_list.addItem(QtWidgets.QListWidgetItem("logs"))
+        self.change_channel("logs")
+        
+        # enable and disable some menu buttons
+        self.server_menu.actions()[0].setEnabled(True)  # Server/Connect
+        self.server_menu.actions()[1].setEnabled(False) # Server/Disconnect
+        self.name_text_box.setEnabled(True)
+        
+        self.add_raw_message("logs", "Disconnected")
+    
     @QtCore.Slot()
-    def about(self):
+    def _about(self):
         print("about")
         # TODO: add about dialog
     
     @QtCore.Slot()
-    def open_settings(self):
+    def _open_settings(self):
         print("open settings")
-        
+        # TODO: add settings dialog
     
     @QtCore.Slot()
-    def connect(self):
+    def _connect(self):
+        # setup the text for the text box from whatever you wrote last
         text = settings.last_server_ip
         if settings.last_server_port >= 0:
             text += ":" + str(settings.last_server_port)
+            
+        # show the dialog
         text, ok = QtWidgets.QInputDialog.getText(self, "Connect", "Connect to:", QtWidgets.QLineEdit.EchoMode.Normal, text)
-        if ok: # my favorite line
-            parts = text.split(":")
-            if len(parts) != 2:
-                message_box = QtWidgets.QMessageBox(QtWidgets.QMessageBox.Icon.Warning, "Bad", "Bad", QtWidgets.QMessageBox.StandardButton.Ok, self)
-                message_box.exec()
+        if not ok:
+            return
+
+        parts = text.split(":")
+        # give an error if you dont include the port
+        # TODO: make it not needed with a default port
+        if len(parts) != 2:
+            self.show_error_dialog("Bad", "Bad")
+            return
+        
+        # get the ip from the combined ip and port, and check if its not empty somehow
+        ip = parts[0]
+        if ip == "":
+            self.show_error_dialog("Bad", "Bad IP")
+            return
+
+        # try to get the port from the combined ip and port as an int
+        try:
+            port = int(parts[1])
+            # remember, a port cannot be negative or above 65535 (unsigned 16 bit int limit)
+            if port < 0 or port > 65535:
+                self.show_error_dialog("Bad", "Bad port, not in range")
                 return
-            ip = parts[0]
-            if ip == "":
-                message_box = QtWidgets.QMessageBox(QtWidgets.QMessageBox.Icon.Warning, "Bad", "Bad IP", QtWidgets.QMessageBox.StandardButton.Ok, self)
-                message_box.exec()
-                return
-            try:
-                port = int(parts[1])
-                if port < 0 or port > 65535:
-                    message_box = QtWidgets.QMessageBox(QtWidgets.QMessageBox.Icon.Warning, "Bad", "Bad port not in range", QtWidgets.QMessageBox.StandardButton.Ok, self)
-                    message_box.exec()
-                    return
-            except ValueError:
-                message_box = QtWidgets.QMessageBox(QtWidgets.QMessageBox.Icon.Warning, "Bad", "Bad port", QtWidgets.QMessageBox.StandardButton.Ok, self)
-                message_box.exec()
-                return
-            settings.last_server_ip = ip
-            settings.last_server_port = port
-            settings.save()
-            # TODO: connect here
-            self.server_menu.actions()[0].setEnabled(False)
-            self.server_menu.actions()[1].setEnabled(True)
-            self.server_menu.actions()[2].setEnabled(True)
-            self.name_text_box.setEnabled(False)
-            message_box = QtWidgets.QMessageBox(QtWidgets.QMessageBox.Icon.NoIcon, "Connected", f"Connected to {ip} with port {port}", QtWidgets.QMessageBox.StandardButton.Ok, self)
-            message_box.exec()
+        # that is not an int
+        except ValueError:
+            self.show_error_dialog("Bad", "Bad port")
+            return
+
+        # remember the ip and port
+        settings.last_server_ip = ip
+        settings.last_server_port = port
+        
+        self.client_connect(ip, port)
     
     @QtCore.Slot()
-    def disconnect(self):
-        # TODO: disconnect here
-        self.server_menu.actions()[0].setEnabled(True)
-        self.server_menu.actions()[1].setEnabled(False)
-        self.server_menu.actions()[2].setEnabled(False)
-        self.name_text_box.setEnabled(True)
+    def _disconnect(self):
+        self.client_disconnect()
     
     @QtCore.Slot()
-    def reconnect(self):
-        # TODO: reconnect here
-        message_box = QtWidgets.QMessageBox(QtWidgets.QMessageBox.Icon.NoIcon, "Reconnected", "Reconnected", QtWidgets.QMessageBox.StandardButton.Ok, self)
-        message_box.exec()
-    
-    @QtCore.Slot()
-    def toggle_user_list(self):
+    def _toggle_user_list(self):
         self.right_frame.setVisible(not self.right_frame.isVisible())
     
     @QtCore.Slot()
-    def name_edited(self):
+    def _name_edited(self):
         # make sure you are not using bad characters
         name = self.name_text_box.text()
         cursor_position = self.name_text_box.cursorPosition()
@@ -318,17 +416,29 @@ class MainWindow(QtWidgets.QMainWindow):
                 cursor_position -= 1
                 i -= 1
             i += 1
+        
+        # check if it actually changed (textEdited would still trigger the signal if you wrote a disallowed character)
         if name != self.name_text_box.text():
             self.name_text_box.setText(name)
             self.name_text_box.setCursorPosition(cursor_position)
         else:
-            print(name)
-            settings.name = name
+            self.set_name(name)
     
     @QtCore.Slot()
-    def message_box_changed(self):
+    def _selected_channel(self):
+        self.change_channel(self.channel_list.selectedItems()[0].text())
+    
+    @QtCore.Slot()
+    def _message_box_changed(self):
+        # make sure it doesnt give an error, because `setText`ing a QTextEdit counts as changing it
         if self.message_box.toPlainText() == "":
             return
+
+        # check if you can actually send in that channel
+        if not self.channels[self.current_channel]["can_send"]:
+            return
+        
+        # check if the last character is a new line (basically check for pressing enter), and then send the message without the new line
         if self.message_box.toPlainText()[-1] == "\n":
             message = self.message_box.toPlainText()[:-1]
             self.add_message(self.current_channel, settings.name, message)
