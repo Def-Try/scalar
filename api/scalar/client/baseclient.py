@@ -55,6 +55,13 @@ class BaseClient:
     async def _invoke_event(self, event_name: str, *event_args: list[typing.Any], **event_kwargs: dict[str, typing.Any]):
         if self._events.get(event_name) is None:
             return
+        if hasattr(self, "event_"+event_name):
+            try:
+                call = getattr(self, "event_"+event_name)(*event_args, **event_kwargs)
+                if call is not None:
+                    await call
+            except BaseException as e:
+                await self._invoke_event("on_exception", e)
         for event in self._events[event_name]:
             try:
                 call = event(self, *event_args, **event_kwargs)
