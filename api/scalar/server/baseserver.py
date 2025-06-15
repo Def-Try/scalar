@@ -17,6 +17,7 @@ class BaseServer:
     _clients: dict[str, client.Client] = {}
     _keys: dict[str, typing.Any] = {}
     _client_class: type = client.BaseClient
+    _implementation: str = 'base'
     def __init__(self):
         @self.event("on_exception")
         def print_exception(self, client, e):

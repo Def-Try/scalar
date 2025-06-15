@@ -127,6 +127,25 @@ packet.register(CLIENTBOUND_SHeartbeat)
 packet.register(SERVERBOUND_CHeartbeat)
 packet.register(CLIENTBOUND_CHeartbeat)
 
+class CLIENTBOUND_ImplementationInfo(packet.Packet):
+    side = packet.CLIENT
+    datavalues = {"implementation": str}
+    defaults = {}
+    def _write(self, buffer: packet.buf.Buffer):
+        buffer.WriteU16(self.nonce)
+    def _read(self, buffer: packet.buf.Buffer):
+        self.nonce = buffer.ReadU16()
+class SERVERBOUND_ImplementationInfo(packet.Packet):
+    side = packet.SERVER
+    datavalues = {"implementation": str}
+    defaults = {}
+    def _write(self, buffer: packet.buf.Buffer):
+        buffer.WriteU16(self.nonce)
+    def _read(self, buffer: packet.buf.Buffer):
+        self.nonce = buffer.ReadU16()
+packet.register(SERVERBOUND_ImplementationInfo)
+packet.register(CLIENTBOUND_ImplementationInfo)
+
 class CLIENTBOUND_Kick(packet.Packet):
     side = packet.CLIENT
     datavalues = {"reason": str}

@@ -11,7 +11,7 @@ ALLOWED_USERNAME_CHARACTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVW
 class BaseClient:
     _address: tuple[str, int] = None
     _socket: protosocket.ProtoSocket = None
-
+    _client_implementation: str|None = None
     _logged_in: bool = False
     _username: str = ''
     _original_username: str = ''
@@ -118,6 +118,9 @@ class BaseClient:
             self._username += f"_{self._username_n}"
         await self._send_packet(protocol.CLIENTBOUND_LOGIN_UserInfo(username=self._username))
         await self._invoke_event("on_uinfo_negotiated", self._username)
+        self._client_implementation = await self._recv_packet(protocol.SERVERBOUND_ImplementationInfo).implementation
+        await self._send_packet(protocol.CLIENTBOUND_ImplementationInfo(implementation=self._server._implementation))
+        
 
         self._logged_in = True
 

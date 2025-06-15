@@ -15,6 +15,8 @@ class BaseClient:
     _socket: protosocket.ProtoSocket|None = None
     _username: str|None = None
     _original_username: str|None = None
+    _implementation: str = 'base'
+    _server_implementation: str|None = None
     def __init__(self, *, username: str|None = None):
         self._original_username = username
 
@@ -193,6 +195,8 @@ class BaseClient:
         agreed_uinfo = await self._recv_packet(protocol.CLIENTBOUND_LOGIN_UserInfo)
         self._username = agreed_uinfo.username
         await self._invoke_event("on_uinfo_negotiated", self._username)
+        await self._send_packet(protocol.SERVERBOUND_ImplementationInfo(implementation=self._implementation))
+        self._server_implementation = await self._recv_packet(protocol.CLIENTBOUND_ImplementationInfo).implementation
         return True
     
     async def recv_packets(self):
