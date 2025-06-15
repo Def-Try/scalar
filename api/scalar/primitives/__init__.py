@@ -1,0 +1,1 @@
+from scalar.primitives.user import User
