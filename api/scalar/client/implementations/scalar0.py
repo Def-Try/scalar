@@ -14,6 +14,7 @@ class Scalar0Client(BaseClient):
 
     async def _process_packet(self, packet_type: type, packet: protocol.packet.Packet):
         if packet_type is protocol.CLIENTBOUND_EventUserJoined:
+            await self._invoke_event("on_user_joined", packet.user)
             for user in self._userlist:
                 if user != packet.user:
                     continue
@@ -21,6 +22,7 @@ class Scalar0Client(BaseClient):
             self._userlist.append(packet.user)
             return
         if packet_type is protocol.CLIENTBOUND_EventUserLeft:
+            await self._invoke_event("on_user_left", packet.user)
             for user in self._userlist:
                 if user != packet.user:
                     continue
