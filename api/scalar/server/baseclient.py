@@ -5,6 +5,7 @@ import random
 import scalar.protocol.encryption as encryption
 import scalar.protocol.socket.protosocket as protosocket
 import scalar.protocol.packets.protocol as protocol
+import scalar.primitives as primitives
 
 ALLOWED_USERNAME_CHARACTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._"
 
@@ -16,6 +17,8 @@ class BaseClient:
     _username: str = ''
     _original_username: str = ''
     _username_n: int = 0
+    _fingerprint: str|None = None
+    _user: primitives.User|None = None
     def __init__(self, server, addr: tuple[str, int], sock: protosocket.ProtoSocket):
         self._server = server
         self._address = addr
@@ -32,6 +35,7 @@ class BaseClient:
         exit(0) # we're a thread, kill ourselves
 
     async def kick(self, reason: str = "No reason specified"):
+        await self._invoke_event("on_kick", reason)
         await self._socket.send_packet(protocol.CLIENTBOUND_Kick(reason=reason))
         self._end_it_all()
     
@@ -72,6 +76,7 @@ class BaseClient:
         
         encryptor = selected[0](selected[1].load(self._server._keys[selected_name].save()))
         encryptor.exchange(packet.key)
+        self._fingerprint = encryption.fingerprint_key(packet.key)
 
         if await self._socket.send_packet(protocol.SERVERBOUND_HANDSHAKE_EncryptionPubKey(key=encryptor.public_key())) != protosocket.SOCKET_SUCCESS:
             return self._end_it_all()
@@ -99,7 +104,6 @@ class BaseClient:
         if type(packet) is expect:
             return packet
         if expect is not None and type(packet) is not expect:
-            await self._invoke_event("on_kick")
             return await self.kick(f"Expected {expect.__name__}, got {type(packet).__name__}")
 
         return packet
@@ -159,13 +163,11 @@ class BaseClient:
                 continue
             return queue
     
-    async def _process_packet(self, packet_type: type, packet: protocol.packet.Packet):
-        pass
-
     async def serve(self):
         await self._protocol_connect()
         await self._protocol_login()
+        self._user = primitives.User(self._username, self._fingerprint)
         await self._invoke_event('on_login_complete')
         while True:
             for packet in await self.recv_packets():
-                await self._process_packet(type(packet), packet)
+                await self._server._process_packet(self, type(packet), packet)

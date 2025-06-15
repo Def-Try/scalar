@@ -2,6 +2,7 @@ import scalar.protocol.encryption as encryption
 import scalar.protocol.packets.protocol as protocol
 import scalar.protocol.socket.protosocket as protosocket
 import scalar.exceptions as exceptions
+import scalar.primitives as primitives
 
 import typing
 import asyncio
@@ -15,8 +16,10 @@ class BaseClient:
     _socket: protosocket.ProtoSocket|None = None
     _username: str|None = None
     _original_username: str|None = None
+    _fingerprint: str|None = None
     _implementation: str = 'base'
     _server_implementation: str|None = None
+    _user: primitives.User|None = None
     def __init__(self, *, username: str|None = None):
         self._original_username = username
 
@@ -92,6 +95,7 @@ class BaseClient:
             raise exceptions.ClientConnectionError()
         if not await self._protocol_login():
             raise exceptions.ClientConnectionError()
+        self._user = primitives.User(self._username, self._fingerprint)
         await self._invoke_event('on_login_complete')
 
     def close(self):
@@ -149,6 +153,7 @@ class BaseClient:
         
         if await self._socket.send_packet(protocol.SERVERBOUND_HANDSHAKE_EncryptionPubKey(key=encryptor.public_key())) != protosocket.SOCKET_SUCCESS:
             return False
+        self._fingerprint = encryption.fingerprint_key(encryptor.public_key())
         
         stat, packet = await self._socket.recv_packet()
         if stat != protosocket.SOCKET_SUCCESS:

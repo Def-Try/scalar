@@ -103,3 +103,11 @@ class BaseServer:
         clients = self._clients.copy()
         for client in clients.values():
             yield client
+
+    async def broadcast(self, packet: protocol.packet.Packet, except_clients: list):
+        for client in self.clients():
+            if client in except_clients: continue
+            await client._send_packet(packet)
+
+    async def _process_packet(self, client, packet_type: type, packet: protocol.packet.Packet):
+        pass
