@@ -1,10 +1,10 @@
 import hashlib
 
 from scalar.protocol.encryption.baseencryption import BaseEncryption
-from scalar.protocol.encryption.dhencryption import DHEncryption, DHKeypair
+from scalar.protocol.encryption.dhaes_encryption import DHEncryption, DHKeypair
 
 SUPPORTED = {
-    "dh": [DHEncryption, DHKeypair]
+    "dhaes": [DHEncryption, DHKeypair]
 }
 
 def fingerprint_key(key_bytes: bytes):

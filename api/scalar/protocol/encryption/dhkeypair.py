@@ -1,10 +1,6 @@
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import dh
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-import os
-
-from scalar.protocol.encryption.baseencryption import BaseEncryption
 
 P = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
 G = 2
@@ -45,37 +41,3 @@ class DHKeypair:
             salt=None,
             info=b'handshake data',
         ).derive(shared)
-
-class DHEncryption(BaseEncryption):
-    keypair: DHKeypair
-
-    def __init__(self, keypair: DHKeypair):
-        self.keypair = keypair
-
-    def public_key(self):
-        return self.keypair.public_key()
-    
-    def shared_key(self):
-        return self.keypair.shared_key
-    
-    def exchange(self, public_bytes: bytes):
-        self.keypair.derive(public_bytes)
-
-    def encrypt(self, message):
-        iv = os.urandom(12)
-        encryptor = Cipher(
-            algorithms.AES(self.shared_key()),
-            modes.GCM(iv)
-        ).encryptor()
-        encrypted = encryptor.update(message) + encryptor.finalize()
-        return iv+encryptor.tag+encrypted
-    
-    def decrypt(self, message):
-        iv = message[0:12]; message = message[12:]
-        tag = message[0:16]; message = message[16:]
-        decryptor = Cipher(
-            algorithms.AES(self.shared_key()),
-            modes.GCM(iv, tag)
-        ).decryptor()
-        decrypted = decryptor.update(message) + decryptor.finalize()
-        return decrypted
