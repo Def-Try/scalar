@@ -4,7 +4,11 @@ import scalar.protocol.packets.protocol as protocol
 
 class Scalar0Client(BaseClient):
     _userlist: list[primitives.User] = []
+    _implementation: str = 'scalar0'
+
     async def event_on_login_completed(self):
+        if self._server_implementation not in ('scalar0',):
+            return
         await self._send_packet(protocol.SERVERBOUND_UserListRequest)
         for packet in await self.recv_packets():
             if type(packet) is not protocol.CLIENTBOUND_UserListResponse:
