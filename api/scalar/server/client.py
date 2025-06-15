@@ -135,6 +135,7 @@ class BaseClient:
                 expect_nonce = random.randint(0, 65535)
                 await self._send_packet(protocol.CLIENTBOUND_CHeartbeat(nonce=expect_nonce))
                 heartbeats_missed += 1
+                await self._invoke_event("heartbeat_missed", heartbeats_missed)
             if heartbeats_missed >= 6:
                 await self.kick("Heartbeat stopped (missed 5 heartbeat attempts)")
             if not packet:
