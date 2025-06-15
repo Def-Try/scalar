@@ -69,3 +69,12 @@ class ConnectionTimedOut(ScalarException):
     """
     Raised when connected client or server skipped too many heartbeat attempts
     """
+
+class ClientNoNameSpecified(ScalarException):
+    """
+    Raised when client tries to connect without a name set
+    """
+class ClientConnected(ScalarException):
+    """
+    Raised when trying to execute an action that's impossible while connected
+    """

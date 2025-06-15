@@ -13,16 +13,20 @@ VERSION = 1
 
 class BaseClient:
     _socket: protosocket.ProtoSocket|None = None
-    _username: str = ''
-    _original_username: str = ''
-    def __init__(self, *, username: str):
+    _username: str|None = None
+    _original_username: str|None = None
+    def __init__(self, *, username: str|None = None):
         self._original_username = username
-        self._username = username
 
         @self.event("on_exception")
         def print_exception(self, e):
             print("Exception occured, ignoring")
             print("".join(traceback.format_exception(e))[:-1])
+
+    def set_username(self, username: str|None):
+        if self.connected():
+            raise exceptions.ClientConnected()
+        self._original_username = self._username
 
     _keys: dict[str, typing.Any] = {}
     def load_key(self, key_type: str, key_bytes: bytes):
@@ -60,7 +64,14 @@ class BaseClient:
             except BaseException as e:
                 await self._invoke_event("on_exception", e)
 
+    def connected(self) -> bool:
+        return self._socket is not None
+
     async def connect(self, host: str, port: int):
+        if self._original_username is None:
+            raise exceptions.ClientNoNameSpecified()
+        self._username = self._original_username
+
         self._socket = protosocket.ProtoSocket(
             host=host,
             port=port,
