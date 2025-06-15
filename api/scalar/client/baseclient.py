@@ -205,7 +205,7 @@ class BaseClient:
             # send server heartbeat (check server responsiveness)
             if not packet:
                 expect_nonce = random.randint(0, 65535)
-                await self._send_packet(protocol.CLIENTBOUND_SHeartbeat(nonce=expect_nonce))
+                await self._send_packet(protocol.SERVERBOUND_SHeartbeat(nonce=expect_nonce))
                 heartbeats_missed += 1
                 await self._invoke_event("heartbeat_missed", heartbeats_missed)
             if heartbeats_missed >= 6:
@@ -213,16 +213,20 @@ class BaseClient:
                 raise exceptions.ConnectionTimedOut()
             if not packet:
                 continue
-            if type(packet) is protocol.SERVERBOUND_SHeartbeat:
+            if type(packet) is protocol.CLIENTBOUND_SHeartbeat:
                 if packet.nonce == expect_nonce:
                     heartbeats_missed = 0
                 continue
 
             # reply to client heartbeat (checking client responsiveness)
-            if type(packet) is protocol.SERVERBOUND_CHeartbeat:
+            if type(packet) is protocol.CLIENTBOUND_CHeartbeat:
                 await self._invoke_event("heartbeat", packet.nonce)
-                await self._send_packet(protocol.CLIENTBOUND_CHeartbeat(nonce=packet.nonce))
+                await self._send_packet(protocol.SERVERBOUND_CHeartbeat(nonce=packet.nonce))
                 continue
+
+            if type(packet) is protocol.CLIENTBOUND_Kick:
+                self.close()
+                raise exceptions.ClientKicked(packet.reason)
             
             queue.append(packet)
             if heartbeats_missed > 0:
