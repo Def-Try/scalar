@@ -146,6 +146,7 @@ class BaseClient:
 
             # reply to server heartbeat (checking server responsiveness)
             if type(packet) is protocol.SERVERBOUND_SHeartbeat:
+                await self._invoke_event("heartbeat", packet.nonce)
                 await self._send_packet(protocol.CLIENTBOUND_SHeartbeat(nonce=packet.nonce))
                 continue
 
@@ -163,5 +164,4 @@ class BaseClient:
         await self._invoke_event('on_login_complete')
         while True:
             for packet in await self.recv_packets():
-                packet_type = type(packet)
-                await self._process_packet(packet_type, packet)
+                await self._process_packet(type(packet), packet)

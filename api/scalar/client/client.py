@@ -201,6 +201,7 @@ class Client:
 
             # reply to client heartbeat (checking client responsiveness)
             if type(packet) is protocol.SERVERBOUND_CHeartbeat:
+                await self._invoke_event("heartbeat", packet.nonce)
                 await self._send_packet(protocol.CLIENTBOUND_CHeartbeat(nonce=packet.nonce))
                 continue
             
@@ -216,5 +217,4 @@ class Client:
         await self.connect(host, port)
         while True:
             for packet in await self.recv_packets():
-                packet_type = type(packet)
-                await self._process_packet(packet_type, packet)
+                await self._process_packet(type(packet), packet)
