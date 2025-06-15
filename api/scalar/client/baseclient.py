@@ -229,7 +229,7 @@ class BaseClient:
                 continue
             return queue
         
-    async def _process_packet(packet_type: type, packet: protocol.packet.Packet):
+    async def _process_packet(self, packet_type: type, packet: protocol.packet.Packet):
         pass
 
     async def serve(self, host: str, port: int):
