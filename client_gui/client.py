@@ -11,7 +11,7 @@ newdir = os.path.dirname(currentdir)
 newdir = os.path.join(newdir, "api")
 sys.path.insert(0, newdir)
 
-from scalar.client.baseclient import Client
+from scalar.client.implementations.scalar0 import Scalar0Client # not sure if using BaseClient is correct
 
 
 ALLOWED_NAME_CHARACTERS = string.ascii_letters+string.digits+"_-."
@@ -26,7 +26,7 @@ class Settings:
     def __init__(self):
         self.load()
     
-    # loads the settings
+    # loads the settings. and if the settings file doesnt exist, create it
     def load(self):
         print("loading settings...")
         
@@ -75,7 +75,7 @@ settings: Settings = Settings()
 # please do not the MainWindow
 # due to the g-globals (:fearful:), there can only be ONE MainWindow in a process
 class MainWindow(QtWidgets.QMainWindow):
-    client: Client = Client(username="")
+    client: Scalar0Client = Scalar0Client()
 
     def __init__(self):
         super().__init__()
@@ -114,10 +114,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.set_name(settings.name)
         self.update_from_settings()
         
-        self.channels = {"logs": {"can_send": False, "messages": [["aaaaa"]]}}
-        self.current_channel = "logs"
+        self.channels = {}
+        self.add_channel(-1, "logs", False)
         
-        self.change_channel("logs")
+        self.select_channel(-1)
     
     # adds the left frames, with the channel list and name text box
     def add_left_frames(self):
@@ -236,13 +236,8 @@ class MainWindow(QtWidgets.QMainWindow):
     
     # updates the displayed messages
     def update_messages(self):
-        # if you didnt select a channel: dont show anything
-        if self.current_channel == "":
-            self.messages.setText("")
-            return
-
         text = ""
-        for message in self.channels[self.current_channel]["messages"]:
+        for message in self.channels[]["messages"]:
             text += "\n"
             if len(message) == 1:
                 text += message[0]
@@ -281,20 +276,22 @@ class MainWindow(QtWidgets.QMainWindow):
         self.client._username = new_name
         self.client._original_username = new_name
     
-    # changes the shown channel
-    def change_channel(self, new_channel: str):
-        self.current_channel = new_channel
-        self.message_box.setEnabled(self.channels[self.current_channel]["can_send"])
-        self.channel_list.setCurrentItem(self.channel_list.findItems(new_channel, QtCore.Qt.MatchFlag.MatchExactly)[0])
+    # changes the shown/selected channel
+    def select_channel(self, id: int):
+        self.channel_list.setCurrentItem(self.channels[id]["list_item"])
+        self.message_box.setEnabled(self.channels[id]["can_send"])
         self.update_messages()
     
-    def add_channel(self, name: str, can_send: bool):
-        self.channels[name] = {"can_send": can_send, "messages": [["first"]]}
-        self.channel_list.addItem(QtWidgets.QListWidgetItem(name))
+    def add_channel(self, id: int, name: str, can_send: bool):
+        item = QtWidgets.QListWidgetItem(name)
+        self.channels[id] = {"name": name, "can_send": can_send, "list_item": item, "loaded_messages": []}
+        self.channel_list.addItem(item)
     
-    def remove_channel(self, name: str, can_send: bool):
-        self.channels[name] = None
-        self.channel_list.removeItemWidget(self.channel_list.findItems(name, QtCore.Qt.MatchFlag.MatchExactly)[0])
+    def remove_channel(self, id: int):
+        if self.channel_list.selectedItems()[0] == self.channels[id]["list_item"]:
+            self.select_channel()
+        self.channel_list.removeItemWidget(self.channels[id]["list_item"])
+        self.channels[id] = None
     
     # connects to an ip and port
     def client_connect(self, ip: str, port: int):
