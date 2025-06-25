@@ -15,7 +15,6 @@ setup(
    url="https://github.com/Def-Try/scalar",
 
    packages=['scalar',
-             'scalar.primitives',
              'scalar.protocol',
              'scalar.protocol.encryption',
              'scalar.protocol.packets',

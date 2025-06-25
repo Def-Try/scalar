@@ -1,6 +1,7 @@
 import socket
 import select
 import asyncio
+import time
 
 import scalar.exceptions
 from scalar.protocol.socket.constants import *
@@ -46,16 +47,26 @@ class BaseSocket:
         if not self._socket_available():
             raise scalar.exceptions.SocketLeadsToVoid("Attempt to receive data from a void socket")
         received = b""
+        started = time.time()
         while len(received) < amount:
             await asyncio.sleep(0)
             try:
+                while True:
+                    if time.time() - started > self._socket.gettimeout():
+                        raise scalar.exceptions.SocketTimedOut()
+                    ready1, _, ready2 = select.select([self._socket], [], [self._socket], 0)
+                    if not ready1 and not ready2:
+                        await asyncio.sleep(0)
+                        continue
+                    break
                 r = self._socket.recv(amount - len(received))
+            except socket.timeout:
+                raise scalar.exceptions.SocketTimedOut()
             except OSError as e:
                 self._close()
                 raise scalar.exceptions.SocketBroken(f"OSError: {e.strerror}")
-            except socket.timeout:
-                raise scalar.exceptions.SocketTimedOut()
             if len(r) == 0:
+                self._close()
                 raise scalar.exceptions.SocketBroken("Length of zero on recv call")
             received += r
         return received
@@ -68,11 +79,11 @@ class BaseSocket:
             while sent < len(data):
                 await asyncio.sleep(0)
                 sent += self._socket.send(data[sent:])
+        except socket.timeout:
+            raise scalar.exceptions.SocketTimedOut()
         except OSError as e:
             self._close()
             raise scalar.exceptions.SocketBroken(f"OSError: {e.strerror}")
-        except socket.timeout:
-            raise scalar.exceptions.SocketTimedOut()
     
     async def _accept(self):
         if not self._socket_available():

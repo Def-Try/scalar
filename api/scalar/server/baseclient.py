@@ -33,7 +33,8 @@ class BaseClient:
         self._logged_in = False
         self._socket.close()
         self._server._client_close(self)
-        os._exit(0) # we're a thread, kill ourselves
+        # os._exit(0) # we're a thread, kill ourselves
+        exit()
 
     async def kick(self, reason: str = "No reason specified"):
         await self._invoke_event("on_kick", reason)
@@ -143,7 +144,8 @@ class BaseClient:
                 expect_nonce = random.randint(0, 65535)
                 await self._send_packet(protocol.CLIENTBOUND_CHeartbeat(nonce=expect_nonce))
                 heartbeats_missed += 1
-                await self._invoke_event("heartbeat_missed", heartbeats_missed)
+                if heartbeats_missed > 1:
+                    await self._invoke_event("heartbeat_missed", heartbeats_missed-1)
             if heartbeats_missed >= 6:
                 await self.kick("Heartbeat stopped (missed 5 heartbeat attempts)")
             if not packet:

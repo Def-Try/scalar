@@ -7,5 +7,5 @@ SUPPORTED = {
     "dhaes": [DHAESEncryption, DHKeypair]
 }
 
-def fingerprint_key(key: str):
-    return hashlib.sha256(key.encode()).hexdigest()[0:16]
+def fingerprint_key(key: str) -> int:
+    return int(hashlib.sha256(key.encode()).hexdigest()[0:16], 16)

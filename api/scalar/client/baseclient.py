@@ -219,7 +219,8 @@ class BaseClient:
                 expect_nonce = random.randint(0, 65535)
                 await self._send_packet(protocol.SERVERBOUND_SHeartbeat(nonce=expect_nonce))
                 heartbeats_missed += 1
-                await self._invoke_event("heartbeat_missed", heartbeats_missed)
+                if heartbeats_missed > 1:
+                    await self._invoke_event("heartbeat_missed", heartbeats_missed-1)
             if heartbeats_missed >= 6:
                 self.close()
                 raise exceptions.ConnectionTimedOut()

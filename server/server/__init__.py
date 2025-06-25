@@ -13,14 +13,14 @@ server = scalar0.Scalar0Server()
 server.generate_key('dhaes')
 
 @server.event("on_message")
-def on_message(self, client, user: primitives.User, message: str):
-    print(f"{user.username}: {message}")
+def on_message(self, client, message: primitives.Message):
+    print(f"[#{message.channel.name}] {message.author.username}: {message.content}")
     
 @server.event("heartbeat")
-def heartbeat(self, nonce: int):
+def heartbeat(self, client, nonce: int):
     print("<Heartbeat>")
 @server.event("heartbeat_missed")
-def heartbeat(self, missed: int):
+def heartbeat(self, client, missed: int):
     print(f"<Heartbeat #{missed} missed>")
 
 def run(host: str = '', port: int = 1440):

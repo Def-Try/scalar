@@ -158,29 +158,39 @@ packet.register(CLIENTBOUND_Kick)
 
 class CLIENTBOUND_UserMessage(packet.Packet):
     side = packet.CLIENT
-    datavalues = {"fingerprint": str, "message": str}
+    datavalues = {"mid": int, "channel": int, "user": int, "message": str}
     defaults = {}
     def _write(self, buffer: packet.buf.Buffer):
-        buffer.WriteStringNT(self.fingerprint)
+        buffer.WriteU64(self.mid)
+        buffer.WriteU64(self.channel)
+        buffer.WriteU64(self.user)
         buffer.WriteStringNT(self.message)
     def _read(self, buffer: packet.buf.Buffer):
-        self.fingerprint = buffer.ReadStringNT()
+        self.mid = buffer.ReadU64()
+        self.channel = buffer.ReadU64()
+        self.user = buffer.ReadU64()
         self.message = buffer.ReadStringNT()
 class SERVERBOUND_SendMessage(packet.Packet):
     side = packet.SERVER
-    datavalues = {"message": str}
+    datavalues = {"channel": int, "message": str}
     defaults = {}
     def _write(self, buffer: packet.buf.Buffer):
+        buffer.WriteU64(self.channel)
         buffer.WriteStringNT(self.message)
     def _read(self, buffer: packet.buf.Buffer):
+        self.channel = buffer.ReadU64()
         self.message = buffer.ReadStringNT()
 class CLIENTBOUND_ServerMessage(packet.Packet):
     side = packet.CLIENT
-    datavalues = {"message": str}
+    datavalues = {"mid": int, "channel": int, "message": str}
     defaults = {}
     def _write(self, buffer: packet.buf.Buffer):
+        buffer.WriteU64(self.mid)
+        buffer.WriteU64(self.channel)
         buffer.WriteStringNT(self.message)
     def _read(self, buffer: packet.buf.Buffer):
+        self.mid = buffer.ReadU64()
+        self.channel = buffer.ReadU64()
         self.message = buffer.ReadStringNT()
 packet.register(CLIENTBOUND_UserMessage)
 packet.register(SERVERBOUND_SendMessage)
@@ -190,23 +200,44 @@ class SERVERBOUND_UserListRequest(packet.Packet):
     side = packet.SERVER
     datavalues = {}
     defaults = {}
+class SERVERBOUND_ChannelListRequest(packet.Packet):
+    side = packet.SERVER
+    datavalues = {}
+    defaults = {}
 class CLIENTBOUND_UserListResponse(packet.Packet):
     side = packet.CLIENT
-    datavalues = {"users": list[primitives.User]}
+    datavalues = {"users": dict[int,str]}
     defaults = {}
     def _write(self, buffer: packet.buf.Buffer):
         buffer.WriteU16(len(self.users))
-        for user in self.users:
-            buffer.WriteStringNT(user.username)
-            buffer.WriteStringNT(user.fingerprint)
+        for fingerprint,name in self.users.items():
+            buffer.WriteU64(fingerprint)
+            buffer.WriteStringNT(name)
     def _read(self, buffer: packet.buf.Buffer):
-        self.users = []
+        self.users = {}
         for i in range(buffer.ReadU16()):
-            username = buffer.ReadStringNT()
-            fingerprint = buffer.ReadStringNT()
-            self.users.append(primitives.User(username, fingerprint))
+            fingerprint = buffer.ReadU64()
+            name = buffer.ReadStringNT()
+            self.users[fingerprint] = name
+class CLIENTBOUND_ChannelListResponse(packet.Packet):
+    side = packet.CLIENT
+    datavalues = {"channels": dict[int,str]}
+    defaults = {}
+    def _write(self, buffer: packet.buf.Buffer):
+        buffer.WriteU16(len(self.channels))
+        for cid,name in self.channels.items():
+            buffer.WriteU64(cid)
+            buffer.WriteStringNT(name)
+    def _read(self, buffer: packet.buf.Buffer):
+        self.channels = {}
+        for i in range(buffer.ReadU16()):
+            cid = buffer.ReadU64()
+            name = buffer.ReadStringNT()
+            self.channels[cid] = name
 packet.register(SERVERBOUND_UserListRequest)
+packet.register(SERVERBOUND_ChannelListRequest)
 packet.register(CLIENTBOUND_UserListResponse)
+packet.register(CLIENTBOUND_ChannelListResponse)
 
 class CLIENTBOUND_EventUserJoined(packet.Packet):
     side = packet.CLIENT
@@ -214,21 +245,18 @@ class CLIENTBOUND_EventUserJoined(packet.Packet):
     defaults = {}
     def _write(self, buffer: packet.buf.Buffer):
         buffer.WriteStringNT(self.user.username)
-        buffer.WriteStringNT(self.user.fingerprint)
+        buffer.WriteU64(self.user.fingerprint)
     def _read(self, buffer: packet.buf.Buffer):
         username = buffer.ReadStringNT()
-        fingerprint = buffer.ReadStringNT()
+        fingerprint = buffer.ReadU64()
         self.user = primitives.User(username, fingerprint)
 class CLIENTBOUND_EventUserLeft(packet.Packet):
     side = packet.CLIENT
-    datavalues = {"user": primitives.User}
+    datavalues = {"fingerprint": int}
     defaults = {}
     def _write(self, buffer: packet.buf.Buffer):
-        buffer.WriteStringNT(self.user.username)
-        buffer.WriteStringNT(self.user.fingerprint)
+        buffer.WriteU64(self.fingerprint)
     def _read(self, buffer: packet.buf.Buffer):
-        username = buffer.ReadStringNT()
-        fingerprint = buffer.ReadStringNT()
-        self.user = primitives.User(username, fingerprint)
+        self.fingerprint = buffer.ReadU64()
 packet.register(CLIENTBOUND_EventUserJoined)
 packet.register(CLIENTBOUND_EventUserLeft)
