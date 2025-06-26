@@ -237,7 +237,7 @@ class MainWindow(QtWidgets.QMainWindow):
     # updates the displayed messages
     def update_messages(self):
         text = ""
-        for message in self.channels[]["messages"]:
+        for message in self.channels["messages"]:
             text += "\n"
             if len(message) == 1:
                 text += message[0]

@@ -54,7 +54,10 @@ class BaseSocket:
                 while True:
                     if time.time() - started > self._socket.gettimeout():
                         raise scalar.exceptions.SocketTimedOut()
-                    ready1, _, ready2 = select.select([self._socket], [], [self._socket], 0)
+                    try:
+                        ready1, _, ready2 = select.select([self._socket], [], [self._socket], 0)
+                    except ValueError:
+                        raise scalar.exceptions.SocketBroken(f"Socket file descriptor became invalid value")
                     if not ready1 and not ready2:
                         await asyncio.sleep(0)
                         continue

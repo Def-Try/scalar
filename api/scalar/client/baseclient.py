@@ -20,6 +20,7 @@ class BaseClient:
     _implementation: str = 'base'
     _server_implementation: str|None = None
     _user: primitives.User|None = None
+    _thread: bool = False
     def __init__(self, *, username: str|None = None):
         self._original_username = username
 
@@ -32,6 +33,10 @@ class BaseClient:
         if self.connected():
             raise exceptions.ClientConnected()
         self._original_username = username
+    def get_username(self) -> str|None:
+        return self._original_username
+    def has_username(self) -> bool:
+        return self._original_username is not None
 
     _keys: dict[str, typing.Any] = {}
     def load_key(self, key_type: str, key_bytes: bytes):
@@ -40,6 +45,10 @@ class BaseClient:
         except IndexError:
             raise exceptions.EncryptionKeysUnsupported()
         self._keys[key_type] = keypair.load(key_bytes)
+    def save_key(self, key_type: str) -> bytes:
+        if not key_type in self._keys:
+            return None
+        return self._keys[key_type].save()
     def generate_key(self, key_type: str):
         try:
             keypair = encryption.SUPPORTED[key_type][1]
@@ -80,7 +89,7 @@ class BaseClient:
         return self._socket is not None
 
     async def connect(self, host: str, port: int):
-        if self._original_username is None:
+        if not self.has_username():
             raise exceptions.ClientNoNameSpecified()
         
         self._username = self._original_username
@@ -101,14 +110,16 @@ class BaseClient:
 
     def close(self):
         self._socket.close()
-        del self._socket
-        self._socket = False
+        self._socket = None
+        if self._thread:
+            exit()
 
-    def run(self, host: str, port: int):
+    def run(self, host: str, port: int, we_be_thread: bool = False):
+        self._thread = we_be_thread
         asyncio.run(self.serve(host, port))
 
     def run_thread(self, host: str, port: int):
-        threading.Thread(target=self.run, args=(host, port)).start()
+        threading.Thread(target=self.run, args=(host, port, True), daemon=True).start()
 
     async def _protocol_connect(self):
         if await self._socket.send_packet(protocol.SERVERBOUND_HANDSHAKE_Hello(version=VERSION)) != protosocket.SOCKET_SUCCESS:
