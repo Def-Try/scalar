@@ -52,12 +52,14 @@ class BaseSocket:
             await asyncio.sleep(0)
             try:
                 while True:
+                    if not self._socket:
+                        raise scalar.exceptions.SocketBroken("TCP Socket became None")
                     if time.time() - started > self._socket.gettimeout():
                         raise scalar.exceptions.SocketTimedOut()
                     try:
                         ready1, _, ready2 = select.select([self._socket], [], [self._socket], 0)
                     except ValueError:
-                        raise scalar.exceptions.SocketBroken(f"Socket file descriptor became invalid value")
+                        raise scalar.exceptions.SocketBroken(f"TCP Socket file descriptor became invalid value")
                     if not ready1 and not ready2:
                         await asyncio.sleep(0)
                         continue
@@ -81,6 +83,8 @@ class BaseSocket:
             sent = 0
             while sent < len(data):
                 await asyncio.sleep(0)
+                if not self._socket:
+                    raise scalar.exceptions.SocketBroken("TCP Socket became None")
                 sent += self._socket.send(data[sent:])
         except socket.timeout:
             raise scalar.exceptions.SocketTimedOut()

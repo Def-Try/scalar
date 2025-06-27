@@ -5,6 +5,7 @@ import scalar.protocol.encryption as encryption
 
 from PySide6 import QtCore, QtWidgets, QtGui
 import os
+import time
 
 from .widgets.message import GUI_Message
 
@@ -263,7 +264,7 @@ class MainWindow(QtWidgets.QMainWindow):
         
         self.log_info(f"Connecting to scalar://{host}:{port}")
         self.name_text_box.setEnabled(False)
-        self.client.run_thread(host, port)
+        self.client.start_thread(host, port)
             
     @QtCore.Slot()
     def _menubar_action_disconnect(self):
@@ -287,7 +288,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                      QtWidgets.QMessageBox.No, QtWidgets.QMessageBox.No)
 
             if reply == QtWidgets.QMessageBox.Yes:
-                self.client.close()
+                self.client.end_thread()
                 event.accept()
             else:
                 event.ignore()

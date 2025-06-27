@@ -9,6 +9,7 @@ import asyncio
 import traceback
 import random
 import threading
+import os
 
 VERSION = 1
 
@@ -21,6 +22,10 @@ class BaseClient:
     _server_implementation: str|None = None
     _user: primitives.User|None = None
     _thread: bool = False
+    _thread_host: threading.Thread = None
+    # _thread_kill_event: threading.Event = None
+    _running: bool = False
+
     def __init__(self, *, username: str|None = None):
         self._original_username = username
 
@@ -30,7 +35,7 @@ class BaseClient:
             print("".join(traceback.format_exception(e))[:-1])
 
     def set_username(self, username: str|None):
-        if self.connected():
+        if self._running:
             raise exceptions.ClientConnected()
         self._original_username = username
     def get_username(self) -> str|None:
@@ -92,6 +97,8 @@ class BaseClient:
         if not self.has_username():
             raise exceptions.ClientNoNameSpecified()
         
+        self._running = True
+        
         self._username = self._original_username
 
         self._socket = protosocket.ProtoSocket(
@@ -111,15 +118,31 @@ class BaseClient:
     def close(self):
         self._socket.close()
         self._socket = None
-        if self._thread:
-            exit()
+        self._running = False
 
     def run(self, host: str, port: int, we_be_thread: bool = False):
         self._thread = we_be_thread
         asyncio.run(self.serve(host, port))
 
-    def run_thread(self, host: str, port: int):
-        threading.Thread(target=self.run, args=(host, port, True), daemon=True).start()
+    def start_thread(self, host: str, port: int):
+        if self._running:
+            raise exceptions.ClientThreadRunning()
+        if self._thread_host is not None:
+            raise exceptions.ClientThreadRunning()
+        self._running = True
+        # self._thread_kill_event = threading.Event()
+        self._thread_host = threading.Thread(target=self.run, args=(host, port, True))
+        self._thread_host.start()
+    def end_thread(self):
+        if not self._thread_host:
+            raise exceptions.ClientThreadNotRunning()
+        if self._thread_host == threading.current_thread():
+            raise exceptions.ClientThreadSuicideImpossible()
+        # self._thread_kill_event.set()
+        # self._thread_host.join()
+        # self._thread_kill_event.clear()
+        self.close()
+        self._thread_host.join(5.0)
 
     async def _protocol_connect(self):
         if await self._socket.send_packet(protocol.SERVERBOUND_HANDSHAKE_Hello(version=VERSION)) != protosocket.SOCKET_SUCCESS:
@@ -263,5 +286,9 @@ class BaseClient:
     async def serve(self, host: str, port: int):
         await self.connect(host, port)
         while True:
-            for packet in await self.recv_packets():
+            try:
+                packets = await self.recv_packets()
+            except exceptions.SocketBroken:
+                return
+            for packet in packets:
                 await self._process_packet(type(packet), packet)

@@ -78,3 +78,16 @@ class ClientConnected(ScalarException):
     """
     Raised when trying to execute an action that's impossible while connected
     """
+class ClientThreadRunning(ScalarException):
+    """
+    Raised when trying to execute an action that's impossible while client thread is running
+    """
+class ClientThreadNotRunning(ScalarException):
+    """
+    Raised when trying to execute an action that's impossible while client thread is not running
+    """
+class ClientThreadSuicideImpossible(ScalarException):
+    """
+    Raised when client thread tries to end it's own existence
+    """
+    
