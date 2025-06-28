@@ -5,12 +5,14 @@ import scalar.protocol.encryption as encryption
 
 from PySide6 import QtCore, QtWidgets, QtGui
 import os
-import time
 
 from .widgets.message import GUI_Message
 
+STATE_DISCONNECTED = 0
+STATE_CONNECTED = 1
+
 class MainWindow(QtWidgets.QMainWindow):
-    client: scalar0.Scalar0Client = scalar0.Scalar0Client()
+    # scalar0 client below
     main_widget: QtWidgets.QWidget = None
     main_layout: QtWidgets.QLayout = None
 
@@ -20,6 +22,8 @@ class MainWindow(QtWidgets.QMainWindow):
     center_stacker: QtWidgets.QStackedWidget = None
 
     channels: dict[int, list[int, str, QtWidgets.QWidget]] = {}
+
+    state: int = STATE_DISCONNECTED
 
     def __init__(self):
         super().__init__()
@@ -41,6 +45,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.add_message(-1, "INFO", "This channel will contain various client logs")
 
+        self._init_create_client()
         self._init_load_client_data()
 
     def _init_load_client_data(self):
@@ -220,6 +225,16 @@ class MainWindow(QtWidgets.QMainWindow):
     def log_error(self, msg: str, *fmt):
         self._log("ERROR", msg, *fmt)
 
+    def _update_state(self):
+        if self.state == STATE_CONNECTED:
+            self.server_menu.actions()[0].setEnabled(False)  # Server/Connect
+            self.server_menu.actions()[1].setEnabled(True) # Server/Disconnect
+            self.name_text_box.setEnabled(False)
+        if self.state == STATE_DISCONNECTED:
+            self.server_menu.actions()[0].setEnabled(True)  # Server/Connect
+            self.server_menu.actions()[1].setEnabled(False) # Server/Disconnect
+            self.name_text_box.setEnabled(True)
+
     @QtCore.Slot()
     def _menubar_action_about(self):
         print("about")
@@ -263,15 +278,16 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         
         self.log_info(f"Connecting to scalar://{host}:{port}")
-        self.name_text_box.setEnabled(False)
+        self.state = STATE_CONNECTED
+        self._update_state()
         self.client.start_thread(host, port)
             
     @QtCore.Slot()
     def _menubar_action_disconnect(self):
-        self.client.close()
-        self.name_text_box.setEnabled(True)
+        self.client.end_thread()
+        self.state = STATE_DISCONNECTED
+        self._update_state()
         self.log_info(f"Disconnected")
-        print("disconnect")
     
     @QtCore.Slot()
     def _action_select_channel(self):
@@ -292,3 +308,23 @@ class MainWindow(QtWidgets.QMainWindow):
                 event.accept()
             else:
                 event.ignore()
+
+    client: scalar0.Scalar0Client = None
+
+    def _init_create_client(self):
+        self.client = scalar0.Scalar0Client()
+        @self.client.event("on_kicked")
+        def _cevent_on_kicked(client: scalar0.Scalar0Client, reason: str):
+            self.state = STATE_DISCONNECTED
+            self._update_state()
+            self.log_warning(f"Kicked: {reason}")
+
+        @self.client.event("on_socket_broken")
+        def _cevent_on_socket_broken(client: scalar0.Scalar0Client):
+            self.state = STATE_DISCONNECTED
+            self._update_state()
+            self.log_warning(f"Disconnected: Socket broken for unknown reason")
+        self._client_process_events() # start timer
+    def _client_process_events(self):
+        self.client._threaded_process_events()
+        QtCore.QTimer.singleShot(100, self._client_process_events)
