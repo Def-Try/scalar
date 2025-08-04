@@ -8,7 +8,6 @@ import typing
 import asyncio
 import traceback
 import random
-import threading
 import queue
 
 VERSION = 1
@@ -21,11 +20,6 @@ class BaseClient:
     _implementation: str = 'base'
     _server_implementation: str|None = None
     _user: primitives.User|None = None
-    _thread: bool = False
-    _thread_host: threading.Thread = None
-    _thread_event_out_queue: queue.Queue = None
-    _thread_event_in_queue: queue.Queue = None
-    # _thread_kill_event: threading.Event = None
     _running: bool = False
 
     def __init__(self, *, username: str|None = None):
@@ -73,41 +67,7 @@ class BaseClient:
             self._events[event_name].append(func)
             return func
         return _inner_decorator
-    def _threaded_process_events(self):
-        if self._thread_event_out_queue is None:
-            return
-        async def _asyncpart():
-            while True:
-                try:
-                    event = self._thread_event_out_queue.get(False)
-                    self._thread_event_out_queue.task_done()
-                except queue.Empty:
-                    return
-                event_id, event_name, event_args, event_kwargs = event
-                exception = False
-                try:
-                    result = await self._process_event(event_name, event_args, event_kwargs)
-                except BaseException as e:
-                    result = e
-                    exception = True
-                self._thread_event_in_queue.put((event_id, exception, result))
-        asyncio.run(_asyncpart())
-    def _threaded_invoke_event(self, event_name: str, *event_args: list[typing.Any], **event_kwargs: dict[str, typing.Any]):
-        eid = random.randint(0, 65535)
-        self._thread_event_out_queue.put((eid, event_name, event_args, event_kwargs))
-        while True:
-            out = self._thread_event_in_queue.get()
-            self._thread_event_in_queue.task_done()
-            if out[0] != eid:
-                self._thread_event_in_queue.put(out)
-                continue
-            break
-        if out[1]:
-            raise out[2] from out[2]
-        return out[2]
     async def _invoke_event(self, event_name: str, *event_args: list[typing.Any], **event_kwargs: dict[str, typing.Any]):
-        if self._thread:
-            return self._threaded_invoke_event(event_name, *event_args, **event_kwargs)
         res = None
         try:
             res = await self._process_event(event_name, event_args, event_kwargs)
@@ -157,33 +117,8 @@ class BaseClient:
         self._socket = None
         self._running = False
 
-    def run(self, host: str, port: int, we_be_thread: bool = False):
-        self._thread = we_be_thread
+    def run(self, host: str, port: int):
         asyncio.run(self.serve(host, port))
-
-    def start_thread(self, host: str, port: int):
-        if self._running:
-            raise exceptions.ClientThreadRunning()
-        if self._thread_host is not None and self._thread_host.is_alive():
-            raise exceptions.ClientThreadRunning()
-        self._running = True
-        # self._thread_kill_event = threading.Event()
-        self._thread_event_out_queue = queue.Queue()
-        self._thread_event_in_queue = queue.Queue()
-        self._thread_host = threading.Thread(target=self.run, args=(host, port, True))
-        self._thread_host.start()
-    def end_thread(self):
-        if not self._thread_host:
-            raise exceptions.ClientThreadNotRunning()
-        if self._thread_host == threading.current_thread():
-            raise exceptions.ClientThreadSuicideImpossible()
-        # self._thread_kill_event.set()
-        # self._thread_host.join()
-        # self._thread_kill_event.clear()
-        self.close()
-        self._thread_host.join(5.0)
-        self._thread_host = None
-        self._thread_queue = None
 
     async def _protocol_connect(self):
         if await self._socket.send_packet(protocol.SERVERBOUND_HANDSHAKE_Hello(version=VERSION)) != protosocket.SOCKET_SUCCESS:
